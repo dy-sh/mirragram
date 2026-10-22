@@ -1,0 +1,34 @@
+name: tel_client
+description: "Telegram client with end-to-end encryption on top of regular cloud chats."
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.11.0
+
+dependencies:
+  code_assets: ^1.0.0
+  cupertino_icons: ^1.0.9
+  ffi: ^2.2.0
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  flutter_secure_storage: ^11.2.0
+  flutter_svg: ^2.3.0
+  hooks: ^1.0.3
+  intl: any
+  path: ^1.9.1
+  path_provider: ^2.1.6
+  sodium: ^4.0.2+1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  generate: true
+  uses-material-design: true
+  assets:
+    - assets/eff_large_wordlist.txt

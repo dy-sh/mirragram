@@ -1,0 +1,264 @@
+{
+  "@@locale": "en",
+  "shortDatePattern": "M/d/yy",
+  "today": "Today",
+  "yesterday": "Yesterday",
+  "online": "online",
+  "lastSeenJustNow": "last seen just now",
+  "lastSeenMinutesAgo": "last seen {count, plural, =1{1 minute ago} other{{count} minutes ago}}",
+  "@lastSeenMinutesAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "lastSeenAt": "last seen at {time}",
+  "@lastSeenAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "lastSeenOn": "last seen {date} at {time}",
+  "@lastSeenOn": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "lastSeenRecently": "last seen recently",
+  "lastSeenWithinWeek": "last seen within a week",
+  "lastSeenWithinMonth": "last seen within a month",
+  "lastSeenLongAgo": "last seen a long time ago",
+  "members": "{count, plural, =1{1 member} other{{count} members}}",
+  "@members": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "contentPhoto": "Photo",
+  "contentVideo": "Video",
+  "contentGif": "GIF",
+  "contentFile": "File",
+  "contentVoice": "Voice message",
+  "contentVideoMessage": "Video message",
+  "contentMusic": "Music",
+  "contentSticker": "Sticker",
+  "contentLocation": "Location",
+  "contentContact": "Contact",
+  "contentPoll": "Poll",
+  "contentCall": "Call",
+  "contentMessage": "Message",
+  "serviceJoinedTelegram": "Joined Telegram",
+  "serviceMembersAdded": "Members added",
+  "serviceJoinedByLink": "Joined the group via invite link",
+  "serviceMemberLeft": "A member left the group",
+  "serviceTitleChanged": "Group renamed to “{title}”",
+  "@serviceTitleChanged": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "serviceGroupCreated": "Group created",
+  "serviceMessagePinned": "Message pinned",
+  "e2eKeyPreview": "Encryption key",
+  "e2eGroupKeyPreview": "New group key",
+  "e2eEncryptedPreview": "Encrypted message",
+  "undecryptableNoSenderKey": "the sender's key is missing",
+  "undecryptableNoGroupKey": "the group key is missing",
+  "undecryptableOtherKey": "encrypted for another key",
+  "undecryptableForgedSender": "the signature doesn't match the sender",
+  "undecryptableUnsupported": "update the app to read it",
+  "undecryptableCorrupted": "the message is damaged",
+  "e2eErrorNoPeerKey": "Your contact hasn't sent their encryption key yet.",
+  "e2eErrorNoGroupKey": "The group has no encryption key yet.",
+  "e2eErrorTooLong": "The message is too long to encrypt.",
+  "savedMessages": "Saved Messages",
+  "cancel": "Cancel",
+  "back": "Back",
+  "error": "Error",
+  "search": "Search",
+  "searchShortcut": "Search (⌘K)",
+  "tabContacts": "Contacts",
+  "tabChats": "Chats",
+  "tabSettings": "Settings",
+  "edit": "Edit",
+  "you": "You",
+  "draft": "Draft: ",
+  "selectChat": "Select a chat to start messaging",
+  "edited": "edited ",
+  "undecryptable": "Couldn't decrypt: {reason}",
+  "@undecryptable": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "lockedMessage": "Enter your encryption password to read this message",
+  "authPhoneInvalid": "Invalid phone number.",
+  "authCodeInvalid": "Invalid code.",
+  "authCodeExpired": "The code has expired. Request a new one.",
+  "authPasswordInvalid": "Invalid password.",
+  "authPhoneTitle": "Your Phone",
+  "authPhoneHint": "Please confirm your country code and enter your phone number.",
+  "authPhoneNumber": "Phone number",
+  "authCodeTitle": "Enter Code",
+  "authCode": "Code",
+  "authPasswordTitle": "Cloud Password",
+  "authPasswordHint": "Your account is protected with two-step verification.",
+  "authPasswordHintValue": "Hint: {hint}",
+  "@authPasswordHintValue": {
+    "placeholders": {
+      "hint": {
+        "type": "String"
+      }
+    }
+  },
+  "password": "Password",
+  "authNameTitle": "Your Name",
+  "authNameHint": "Enter your name and add a profile photo.",
+  "authFirstName": "First name",
+  "authLastName": "Last name (optional)",
+  "authUnsupportedTitle": "Log In",
+  "authUnsupportedHint": "This login method isn't supported yet. Log in with your phone number in the official app and try again.",
+  "continueButton": "Continue",
+  "authCodeSentApp": "We've sent the code to the Telegram app on your other device ({phone}).",
+  "@authCodeSentApp": {
+    "placeholders": {
+      "phone": {
+        "type": "String"
+      }
+    }
+  },
+  "authCodeSentSms": "We've sent an SMS with the code to {phone}.",
+  "@authCodeSentSms": {
+    "placeholders": {
+      "phone": {
+        "type": "String"
+      }
+    }
+  },
+  "authCodeSent": "The code was sent to {phone}.",
+  "@authCodeSent": {
+    "placeholders": {
+      "phone": {
+        "type": "String"
+      }
+    }
+  },
+  "encryption": "Encryption",
+  "encryptionUnsupported": "Encryption works in private chats and groups. Channels are not supported.",
+  "encryptionLocked": "Set an encryption password to encrypt your messages.",
+  "setEncryptionPassword": "Set Encryption Password",
+  "encryptMessages": "Encrypt messages",
+  "peerKey": "Contact's key",
+  "peerKeyFooter": "Compare these digits with your contact in person or by phone. If they match, nobody is intercepting your chat.",
+  "peerKeyMissing": "Not received yet",
+  "verified": "Verified",
+  "groupKey": "Group key",
+  "groupKeyFooter": "Share a new key after members turn on encryption, or after removing someone from the group: removed members won’t be able to read new messages.",
+  "groupKeyPresent": "Yes",
+  "groupKeyAbsent": "No",
+  "shareNewKey": "Share New Key",
+  "keySent": "Key Sent",
+  "keySentRecipients": "Recipients with encryption keys: {count}",
+  "@keySentRecipients": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "waitingGroupKey": "Waiting for the group key from the member who turned on encryption.",
+  "waitingPeerKey": "Waiting for your contact to turn on encryption in their app.",
+  "encryptionOnFooter": "Messages are encrypted on your device. Telegram and users of regular apps see only random characters.",
+  "encryptionOffFooter": "Turning this on sends your public key to the chat.",
+  "appearance": "Appearance",
+  "colorTheme": "Color theme",
+  "chatWallpaper": "Chat Wallpaper",
+  "nightMode": "Night Mode",
+  "autoNightFooter": "The night theme turns on together with the system dark mode.",
+  "autoNight": "Automatic",
+  "autoNightSystem": "System",
+  "autoNightOff": "Off",
+  "textSize": "Text size",
+  "autoNightTitle": "Automatic night theme",
+  "autoNightFollowSystem": "Follow system",
+  "previewIncoming1": "Good morning! 👋",
+  "previewIncoming2": "Do you know what time it is?",
+  "previewOutgoing": "It's morning in Tokyo 😎",
+  "themeDayClassic": "Day Classic",
+  "themeDay": "Day",
+  "themeNight": "Night",
+  "themeNightTinted": "Night Blue",
+  "wallpaperNightFooter": "This wallpaper is used in the night theme.",
+  "wallpaperDayFooter": "This wallpaper is used in the day theme.",
+  "wallpaperReset": "Theme Default",
+  "wallpapers": "Wallpapers",
+  "colors": "Colors",
+  "preview": "Preview",
+  "setWallpaper": "Set",
+  "weakPassword": "Weak Password",
+  "passwordsDontMatch": "Passwords don't match",
+  "later": "Later",
+  "encryptionPassword": "Encryption Password",
+  "encryptionPasswordInfo": "Your keys are derived from this password. Enter it on each of your devices to read encrypted chats.\n\nThe password is not stored anywhere. If you forget it, your encrypted messages cannot be recovered.",
+  "newPassword": "New password",
+  "existingPassword": "I have one",
+  "anotherPhrase": "Another phrase",
+  "copy": "Copy",
+  "ownPassword": "My own password",
+  "writeDownPhrase": "Write the phrase down and keep it in a safe place.",
+  "repeatPassword": "Repeat password",
+  "createKeys": "Create Keys",
+  "restoreKeys": "Restore Keys",
+  "passwordTooShort": "Use at least 12 characters.",
+  "passwordTooSimple": "Use upper- and lowercase letters, digits and symbols, or a password longer than 16 characters. A generated phrase is the safest choice.",
+  "cantSend": "Can't Send",
+  "youPublishedKey": "You published an encryption key",
+  "peerPublishedKey": "{name} published an encryption key",
+  "@peerPublishedKey": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "forgedKey": "Forged encryption key",
+  "youSharedGroupKey": "You shared a new group key",
+  "peerSharedGroupKey": "{name} shared a new group key",
+  "@peerSharedGroupKey": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "notForThisDevice": "not for this device",
+  "groupUsesEncryption": "This group uses encryption",
+  "peerUsesEncryption": "Your contact uses encryption",
+  "enable": "Turn On",
+  "encryptedMessagePlaceholder": "Encrypted message",
+  "waitingPeerKeyPlaceholder": "Waiting for the contact's key",
+  "messagePlaceholder": "Message",
+  "writeMessagePlaceholder": "Write a message…",
+  "on": "On",
+  "off": "Off",
+  "logOut": "Log Out",
+  "logOutTitle": "Log out?",
+  "logOutMessage": "Encryption keys will be removed from this device. You can restore them with the same encryption password.",
+  "language": "Language",
+  "languageSystem": "System",
+  "languageName": "English"
+}
