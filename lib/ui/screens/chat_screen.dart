@@ -3,19 +3,19 @@ import 'package:flutter/cupertino.dart';
 import '../../app.dart';
 import '../../e2e/chat_encryption.dart';
 import '../../e2e/e2e_service.dart';
+import '../../l10n/l10n.dart';
 import '../../tdlib/td_client.dart';
 import '../../telegram/chat_controller.dart';
 import '../format.dart';
 import '../layout/nav.dart';
 import '../media/pick_images.dart';
 import '../media/send_photos_sheet.dart';
-import '../theme/wallpaper.dart';
 import '../tg_theme.dart';
+import '../theme/wallpaper.dart';
 import '../widgets/avatar.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/tg_button.dart';
 import 'chat_encryption_screen.dart';
-import '../../l10n/l10n.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key, required this.chatId});
@@ -67,7 +67,7 @@ class _ChatScreenState extends State<ChatScreen> {
       final (outgoing, encrypted) = enc.prepareOutgoing(text);
       setState(() => _sending = true);
       await tg.sendText(widget.chatId, outgoing, disableLinkPreview: encrypted);
-      _input.clear();
+      if (mounted) _input.clear();
     } on E2eException catch (e) {
       if (mounted) {
         await showTgAlert(
@@ -144,7 +144,6 @@ class _ChatScreenState extends State<ChatScreen> {
                     if (desktop)
                       _DesktopHeader(
                         chat: chat,
-                        subtitle: _subtitle(context, chat),
                         secure: enc.state == ChatE2eState.on,
                         onEncryption: _openEncryption,
                       ),
@@ -169,23 +168,12 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  String _subtitle(BuildContext context, TdObject chat) {
-    final tg = AppScope.of(context).tg;
-    final peer = tg.privateUserId(chat);
-    if (tg.isSavedMessages(chat)) return '';
-    if (peer != null) return lastSeen(context.l10n, tg.users[peer]);
-    final count = tg.memberCount(chat);
-    return count == null ? '' : context.l10n.members(count);
-  }
-
   ObstructingPreferredSizeWidget _navBar(
     BuildContext context,
     TdObject chat,
     ChatEncryption enc,
   ) {
-    final tg = AppScope.of(context).tg;
     final c = TgColors.of(context);
-    final subtitle = _subtitle(context, chat);
     final secure = enc.state == ChatE2eState.on;
 
     return CupertinoNavigationBar(
@@ -194,46 +182,7 @@ class _ChatScreenState extends State<ChatScreen> {
       previousPageTitle: context.l10n.tabChats,
       middle: GestureDetector(
         onTap: _openEncryption,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (secure)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 4),
-                    child: Icon(
-                      CupertinoIcons.lock_fill,
-                      size: 14,
-                      color: c.secure,
-                    ),
-                  ),
-                Flexible(
-                  child: Text(
-                    tg.isSavedMessages(chat)
-                        ? context.l10n.savedMessages
-                        : chat['title'] as String,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TgText.navTitle.copyWith(
-                      color: secure ? c.secure : c.primaryText,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            if (subtitle.isNotEmpty)
-              Text(
-                subtitle,
-                style: TgText.navSubtitle.copyWith(
-                  color: subtitle == context.l10n.online
-                      ? c.accent
-                      : c.secondaryText,
-                ),
-              ),
-          ],
-        ),
+        child: _ChatTitle(chat: chat, secure: secure, desktop: false),
       ),
       trailing: GestureDetector(
         onTap: _openEncryption,
@@ -439,23 +388,90 @@ class _OfferBanner extends StatelessWidget {
   }
 }
 
+/// Chat name and status ("online", "last seen", member count).
+class _ChatTitle extends StatelessWidget {
+  const _ChatTitle({
+    required this.chat,
+    required this.secure,
+    required this.desktop,
+  });
+
+  final TdObject chat;
+  final bool secure;
+  final bool desktop;
+
+  @override
+  Widget build(BuildContext context) {
+    final tg = AppScope.of(context).tg;
+    final c = TgColors.of(context);
+    final l = context.l10n;
+    final peer = tg.privateUserId(chat);
+    final count = tg.memberCount(chat);
+    final saved = tg.isSavedMessages(chat);
+    final subtitle = saved
+        ? ''
+        : peer != null
+        ? lastSeen(l, tg.users[peer])
+        : (count == null ? '' : l.members(count));
+    final online = peer != null && !saved && isOnline(tg.users[peer]);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: desktop
+          ? CrossAxisAlignment.start
+          : CrossAxisAlignment.center,
+      children: [
+        Row(
+          mainAxisSize: desktop ? MainAxisSize.max : MainAxisSize.min,
+          children: [
+            if (secure)
+              Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: Icon(
+                  CupertinoIcons.lock_fill,
+                  size: desktop ? 13 : 14,
+                  color: c.secure,
+                ),
+              ),
+            Flexible(
+              child: Text(
+                saved ? l.savedMessages : chat['title'] as String,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TgText.navTitle.copyWith(
+                  fontSize: desktop ? 15.5 : null,
+                  color: secure ? c.secure : c.primaryText,
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (subtitle.isNotEmpty)
+          Text(
+            subtitle,
+            style: TgText.navSubtitle.copyWith(
+              color: online ? c.accent : c.secondaryText,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 class _DesktopHeader extends StatelessWidget {
   const _DesktopHeader({
     required this.chat,
-    required this.subtitle,
     required this.secure,
     required this.onEncryption,
   });
 
   final TdObject chat;
-  final String subtitle;
   final bool secure;
   final VoidCallback onEncryption;
 
   @override
   Widget build(BuildContext context) {
     final c = TgColors.of(context);
-    final tg = AppScope.of(context).tg;
     return Container(
       height: 56,
       padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -474,47 +490,7 @@ class _DesktopHeader extends StatelessWidget {
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: onEncryption,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      if (secure)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 4),
-                          child: Icon(
-                            CupertinoIcons.lock_fill,
-                            size: 13,
-                            color: c.secure,
-                          ),
-                        ),
-                      Flexible(
-                        child: Text(
-                          tg.isSavedMessages(chat)
-                              ? context.l10n.savedMessages
-                              : chat['title'] as String,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TgText.navTitle.copyWith(
-                            fontSize: 15.5,
-                            color: secure ? c.secure : c.primaryText,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (subtitle.isNotEmpty)
-                    Text(
-                      subtitle,
-                      style: TgText.navSubtitle.copyWith(
-                        color: subtitle == context.l10n.online
-                            ? c.accent
-                            : c.secondaryText,
-                      ),
-                    ),
-                ],
-              ),
+              child: _ChatTitle(chat: chat, secure: secure, desktop: true),
             ),
           ),
           CupertinoButton(
@@ -621,23 +597,18 @@ class _InputPanel extends StatelessWidget {
           ValueListenableBuilder<TextEditingValue>(
             valueListenable: controller,
             builder: (context, value, _) {
-              if (value.text.trim().isEmpty) {
-                return CupertinoButton(
-                  padding: const EdgeInsets.all(6),
-                  minimumSize: const Size(36, 36),
-                  onPressed: () {},
-                  child: Icon(CupertinoIcons.mic, color: c.panelIcon, size: 26),
-                );
-              }
+              final empty = value.text.trim().isEmpty;
               return CupertinoButton(
                 padding: const EdgeInsets.fromLTRB(6, 2, 2, 2),
                 minimumSize: const Size(36, 36),
-                onPressed: sending ? null : onSend,
+                onPressed: sending || empty ? null : onSend,
                 child: Container(
                   width: 33,
                   height: 33,
                   decoration: BoxDecoration(
-                    color: state == ChatE2eState.on ? c.secure : c.accent,
+                    color: empty
+                        ? c.panelIcon.withValues(alpha: 0.35)
+                        : (state == ChatE2eState.on ? c.secure : c.accent),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(

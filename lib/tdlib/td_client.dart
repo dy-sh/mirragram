@@ -17,7 +17,7 @@ class TdError implements Exception {
 }
 
 /// TDLib client: requests matched to responses via `@extra`, plus a stream
-/// of updates. td_receive blocks, so it runs in a separate isolate.
+/// of updates.
 class TdClient {
   TdClient._(this._clientId);
 
@@ -25,8 +25,7 @@ class TdClient {
   final _updates = StreamController<TdObject>.broadcast();
   final _pending = <String, Completer<TdObject>>{};
   var _nextId = 0;
-  ReceivePort? _port;
-  Isolate? _receiver;
+  var _closed = false;
 
   Stream<TdObject> get updates => _updates.stream;
 
@@ -38,18 +37,27 @@ class TdClient {
       }),
     );
     final client = TdClient._(TdJson.createClientId());
-    await client._start();
+    _clients[client._clientId] = client;
+    await _startReceiver();
     // Any request wakes up a new client and triggers updateAuthorizationState.
-    unawaited(client.send({'@type': 'getOption', 'name': 'version'}));
+    unawaited(
+      client
+          .send({'@type': 'getOption', 'name': 'version'})
+          .catchError((_) => <String, dynamic>{}),
+    );
     return client;
   }
 
-  Future<void> _start() async {
+  // td_receive blocks and must be called from one thread only, so a single
+  // isolate receives events for all clients and they are routed by id.
+  static final _clients = <int, TdClient>{};
+  static Future<void>? _receiver;
+
+  static Future<void> _startReceiver() => _receiver ??= () async {
     final port = ReceivePort();
-    _port = port;
-    port.listen((message) => _onMessage(message as String));
-    _receiver = await Isolate.spawn(_receiveLoop, port.sendPort);
-  }
+    port.listen((message) => _route(message as String));
+    await Isolate.spawn(_receiveLoop, port.sendPort);
+  }();
 
   static void _receiveLoop(SendPort port) {
     while (true) {
@@ -58,10 +66,12 @@ class TdClient {
     }
   }
 
-  void _onMessage(String raw) {
+  static void _route(String raw) {
     final obj = jsonDecode(raw) as TdObject;
-    if (obj['@client_id'] != _clientId) return;
+    _clients[obj['@client_id']]?._onMessage(obj);
+  }
 
+  void _onMessage(TdObject obj) {
     final extra = obj['@extra'];
     if (extra is String) {
       final completer = _pending.remove(extra);
@@ -76,10 +86,11 @@ class TdClient {
       }
       return;
     }
-    _updates.add(obj);
+    if (!_closed) _updates.add(obj);
   }
 
   Future<TdObject> send(TdObject request) {
+    if (_closed) return Future.error(TdError(-1, 'client closed'));
     final id = '${_nextId++}';
     final completer = Completer<TdObject>();
     _pending[id] = completer;
@@ -88,8 +99,12 @@ class TdClient {
   }
 
   void dispose() {
-    _receiver?.kill(priority: Isolate.immediate);
-    _port?.close();
+    _closed = true;
+    _clients.remove(_clientId);
+    for (final c in _pending.values) {
+      c.completeError(TdError(-1, 'client closed'));
+    }
+    _pending.clear();
     _updates.close();
   }
 }

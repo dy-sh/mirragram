@@ -12,6 +12,9 @@ const _apiId = int.fromEnvironment('TG_API_ID');
 const _apiHash = String.fromEnvironment('TG_API_HASH');
 const _useTestDc = bool.fromEnvironment('TG_TEST_DC');
 
+/// Keep in sync with `version` in pubspec.yaml (checked by a test).
+const appVersion = '0.1.0';
+
 /// Account state and a cache of TDLib objects kept up to date by updates.
 class TelegramService extends ChangeNotifier {
   TelegramService._(this.client, this._dataDir, this._createClient);
@@ -72,7 +75,7 @@ class TelegramService extends ChangeNotifier {
   void _onUpdate(TdObject u) {
     switch (u['@type']) {
       case 'updateAuthorizationState':
-        _onAuthState(u['authorization_state'] as TdObject);
+        _onAuthState(u['authorization_state'] as TdObject).catchError((_) {});
       case 'updateNewChat':
         final chat = u['chat'] as TdObject;
         chats[chat['id'] as int] = chat;
@@ -184,10 +187,11 @@ class TelegramService extends ChangeNotifier {
           'use_secret_chats': false,
           'api_id': _apiId,
           'api_hash': _apiHash,
-          'system_language_code': 'ru',
+          'system_language_code':
+              PlatformDispatcher.instance.locale.languageCode,
           'device_model': Platform.operatingSystem,
           'system_version': Platform.operatingSystemVersion,
-          'application_version': '0.1.0',
+          'application_version': appVersion,
         });
       case 'authorizationStateReady':
         final me = await client.send({'@type': 'getMe'});
@@ -196,8 +200,11 @@ class TelegramService extends ChangeNotifier {
         unawaited(loadChats());
       case 'authorizationStateClosed':
         myUserId = null;
-        chats.clear();
-        users.clear();
+        for (final cache in [chats, users, basicGroups, supergroups, files]) {
+          cache.clear();
+        }
+        _requestedFiles.clear();
+        defaultBackgrounds.clear();
         _chatsLoaded = false;
         unawaited(_restartClient());
     }
@@ -275,11 +282,6 @@ class TelegramService extends ChangeNotifier {
     final type = chat['type'] as TdObject;
     return type['@type'] == 'chatTypeBasicGroup' ||
         (type['@type'] == 'chatTypeSupergroup' && type['is_channel'] != true);
-  }
-
-  bool isChannel(TdObject chat) {
-    final type = chat['type'] as TdObject;
-    return type['@type'] == 'chatTypeSupergroup' && type['is_channel'] == true;
   }
 
   bool isSavedMessages(TdObject chat) =>
@@ -373,57 +375,42 @@ class TelegramService extends ChangeNotifier {
   bool isDownloading(TdObject file) =>
       (current(file)['local'] as TdObject)['is_downloading_active'] == true;
 
+  /// Requests are deduplicated; a failed download can be requested again.
   void download(TdObject file, {int priority = 1}) {
-    unawaited(
-      client
-          .send({
-            '@type': 'downloadFile',
-            'file_id': file['id'],
-            'priority': priority,
-            'offset': 0,
-            'limit': 0,
-            'synchronous': false,
-          })
-          .catchError((_) => <String, dynamic>{}),
-    );
+    final id = file['id'] as int;
+    if (downloadedPath(file) != null || !_requestedFiles.add(id)) return;
+    client
+        .send({
+          '@type': 'downloadFile',
+          'file_id': id,
+          'priority': priority,
+          'offset': 0,
+          'limit': 0,
+          'synchronous': false,
+        })
+        .then((f) {
+          if (f['@type'] == 'file') files[id] = f;
+        }, onError: (Object _) => _requestedFiles.remove(id));
   }
 
   void cancelDownload(TdObject file) {
-    unawaited(
-      client
-          .send({
-            '@type': 'cancelDownloadFile',
-            'file_id': file['id'],
-            'only_if_pending': false,
-          })
-          .catchError((_) => <String, dynamic>{}),
-    );
+    final id = file['id'] as int;
+    if (!_requestedFiles.remove(id) || downloadedPath(file) != null) return;
+    client
+        .send({
+          '@type': 'cancelDownloadFile',
+          'file_id': id,
+          'only_if_pending': false,
+        })
+        .catchError((_) => <String, dynamic>{});
   }
 
   /// Returns the local path, or starts the download and returns null.
   String? localPath(TdObject? file) {
     if (file == null) return null;
-    final id = file['id'] as int;
-    final current = files[id] ?? file;
-    final local = current['local'] as TdObject;
-    if (local['is_downloading_completed'] == true) {
-      return local['path'] as String;
-    }
-    if (_requestedFiles.add(id)) {
-      unawaited(
-        client
-            .send({
-              '@type': 'downloadFile',
-              'file_id': id,
-              'priority': 1,
-              'offset': 0,
-              'limit': 0,
-              'synchronous': false,
-            })
-            .catchError((_) => <String, dynamic>{}),
-      );
-    }
-    return null;
+    final path = downloadedPath(file);
+    if (path == null) download(file);
+    return path;
   }
 
   // ---------------------------------------------------------------- messages

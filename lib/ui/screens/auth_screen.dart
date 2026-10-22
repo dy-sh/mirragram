@@ -1,11 +1,11 @@
 import 'package:flutter/cupertino.dart';
 
 import '../../app.dart';
+import '../../l10n/l10n.dart';
 import '../../tdlib/td_client.dart';
 import '../tg_theme.dart';
 import '../widgets/language_picker.dart';
 import '../widgets/tg_button.dart';
-import '../../l10n/l10n.dart';
 
 /// Phone number → code → cloud password (2FA) → registration.
 class AuthScreen extends StatefulWidget {
@@ -49,7 +49,7 @@ class _AuthScreenState extends State<AuthScreen> {
     'PHONE_CODE_INVALID' => context.l10n.authCodeInvalid,
     'PHONE_CODE_EXPIRED' => context.l10n.authCodeExpired,
     'PASSWORD_HASH_INVALID' => context.l10n.authPasswordInvalid,
-    _ => message,
+    _ => context.l10n.unknownError(message),
   };
 
   @override

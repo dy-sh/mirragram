@@ -8,8 +8,8 @@ import 'telegram/telegram_service.dart';
 import 'ui/screens/auth_screen.dart';
 import 'ui/screens/e2e_password_screen.dart';
 import 'ui/screens/home_screen.dart';
-import 'ui/theme/appearance.dart';
 import 'ui/tg_theme.dart';
+import 'ui/theme/appearance.dart';
 
 /// Demo mode with fake chats, for working on the UI without an account:
 ///   flutter run -d macos --dart-define=TG_DEMO=true
@@ -90,6 +90,33 @@ class _RootGate extends StatefulWidget {
 class _RootGateState extends State<_RootGate> {
   bool _e2eSkipped = demoMode;
   int? _e2eInitFor;
+  AppScope? _scope;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_scope != null) return;
+    _scope = AppScope.of(context)..tg.addListener(_onTelegram);
+    _onTelegram();
+  }
+
+  @override
+  void dispose() {
+    _scope?.tg.removeListener(_onTelegram);
+    super.dispose();
+  }
+
+  /// Loads the encryption keys of the account that is logged in.
+  void _onTelegram() {
+    final tg = _scope!.tg;
+    final userId = tg.authStateType == 'authorizationStateReady'
+        ? tg.myUserId
+        : null;
+    if (userId == _e2eInitFor) return;
+    _e2eInitFor = userId;
+    _e2eSkipped = demoMode;
+    if (userId != null) unawaited(_scope!.e2e.init(userId));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -106,14 +133,8 @@ class _RootGateState extends State<_RootGate> {
               'authorizationStateWaitOtherDeviceConfirmation' ||
               'authorizationStateWaitEmailAddress' ||
               'authorizationStateWaitEmailCode':
-            _e2eInitFor = null;
             return const AuthScreen();
           case 'authorizationStateReady' when tg.myUserId != null:
-            final userId = tg.myUserId!;
-            if (_e2eInitFor != userId) {
-              _e2eInitFor = userId;
-              unawaited(scope.e2e.init(userId));
-            }
             if (scope.e2e.status == E2eStatus.needsPassword && !_e2eSkipped) {
               return E2ePasswordScreen(
                 onSkip: () => setState(() => _e2eSkipped = true),
@@ -121,7 +142,6 @@ class _RootGateState extends State<_RootGate> {
             }
             return const HomeScreen();
           default:
-            _e2eInitFor = null;
             return const CupertinoPageScaffold(
               child: Center(child: CupertinoActivityIndicator()),
             );

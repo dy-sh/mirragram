@@ -54,7 +54,6 @@
   "tabContacts": "Контакты",
   "tabChats": "Чаты",
   "tabSettings": "Настройки",
-  "edit": "Изм.",
   "you": "Вы",
   "draft": "Черновик: ",
   "selectChat": "Выберите чат, чтобы начать общение",
@@ -172,5 +171,10 @@
   "send": "Отправить",
   "photosNotEncrypted": "Фото отправляются без шифрования.",
   "photoTooLarge": "Фото больше 10 МБ пока не поддерживаются.",
-  "megabytes": "{size} МБ"
+  "megabytes": "{size} МБ",
+  "genericError": "Что-то пошло не так. Попробуйте ещё раз.",
+  "ok": "OK",
+  "gif": "GIF",
+  "unreadThousands": "{count}K",
+  "unknownError": "Ошибка: {code}"
 }

@@ -1,15 +1,15 @@
 import 'package:flutter/cupertino.dart';
 
 import '../../app.dart';
+import '../../l10n/l10n.dart';
 import '../../tdlib/td_client.dart';
 import '../layout/nav.dart';
+import '../tg_theme.dart';
 import '../theme/appearance.dart';
 import '../theme/wallpaper.dart';
-import '../tg_theme.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/tg_list.dart';
 import 'wallpaper_screen.dart';
-import '../../l10n/l10n.dart';
 
 class AppearanceScreen extends StatelessWidget {
   const AppearanceScreen({super.key});

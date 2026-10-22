@@ -1,14 +1,16 @@
 import 'package:flutter/cupertino.dart';
 
 import '../../app.dart';
+import '../../l10n/l10n.dart';
+import '../../tdlib/td_client.dart';
 import '../layout/nav.dart';
 import '../tg_theme.dart';
 import '../widgets/avatar.dart';
 import '../widgets/language_picker.dart';
+import '../widgets/tg_button.dart';
 import '../widgets/tg_list.dart';
 import 'appearance_screen.dart';
 import 'e2e_password_screen.dart';
-import '../../l10n/l10n.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -221,7 +223,14 @@ class SettingsMenu extends StatelessWidget {
       ),
     );
     if (ok != true) return;
+    try {
+      await scope.tg.logOut();
+    } on TdError catch (e) {
+      if (context.mounted) {
+        await showTgAlert(context, context.l10n.error, e.message);
+      }
+      return;
+    }
     await scope.e2e.reset();
-    await scope.tg.logOut();
   }
 }

@@ -15,13 +15,13 @@ class PickedImage {
 /// Telegram's limit for photos; larger images must be sent as files.
 const maxPhotoBytes = 10 * 1024 * 1024;
 
-/// Demo mode sets this to bypass the system file dialog.
-List<String>? debugPickedImagePaths;
+/// Set only by the demo driver, to bypass the system file dialog.
+List<String>? demoPickedImagePaths;
 
 Future<List<PickedImage>> pickImages() async {
   final List<String> paths;
-  if (debugPickedImagePaths != null) {
-    paths = debugPickedImagePaths!;
+  if (demoPickedImagePaths != null) {
+    paths = demoPickedImagePaths!;
   } else {
     final files = await ImagePicker().pickMultiImage(
       maxWidth: 2560,

@@ -2,13 +2,13 @@ import 'package:flutter/cupertino.dart';
 
 import '../../app.dart';
 import '../../e2e/chat_encryption.dart';
+import '../../l10n/l10n.dart';
 import '../../tdlib/td_client.dart';
 import '../tg_theme.dart';
 import '../widgets/avatar.dart';
 import '../widgets/tg_button.dart';
 import '../widgets/tg_list.dart';
 import 'e2e_password_screen.dart';
-import '../../l10n/l10n.dart';
 
 class ChatEncryptionScreen extends StatefulWidget {
   const ChatEncryptionScreen({super.key, required this.chatId});

@@ -30,7 +30,7 @@ BANNED_PATHS = [".tg_api_hash", "docs/", ".env", ".env.*", "*.local", "*.local.*
 CYRILLIC = re.compile("[\u0400-\u04FF]")
 SECRETS = [
     (re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"), "private key"),
-    (re.compile(r"(?i)(api_?hash|secret|token|password)\w*\s*[:=]\s*['\"][0-9a-f]{32,}['\"]"),
+    (re.compile(r"(?i)(api_?hash|secret|token|password)\w*\s*[:=]\s*['\"]?[0-9a-f]{32,}"),
      "hex secret"),
     (re.compile(r"(?i)api_?id\w*\s*[:=]\s*['\"]?\d{5,}"), "Telegram api_id"),
     (re.compile(r"\bAKIA[0-9A-Z]{16}\b"), "AWS access key"),
@@ -81,7 +81,10 @@ def read(path: str, staged: bool) -> str | None:
     if staged:
         data = subprocess.run(["git", "show", f":{path}"], capture_output=True).stdout
     else:
-        data = (root() / path).read_bytes()
+        file = root() / path
+        if not file.exists():
+            return None
+        data = file.read_bytes()
     if b"\0" in data[:8000]:
         return None
     return data.decode("utf-8", errors="replace")
@@ -113,8 +116,13 @@ def check_files(staged: bool) -> list[str]:
 
 
 def check_message(path: str) -> list[str]:
-    text = "\n".join(line for line in Path(path).read_text(encoding="utf-8").splitlines()
-                     if not line.startswith("#"))
+    lines = []
+    for line in Path(path).read_text(encoding="utf-8").splitlines():
+        if line.startswith("# ------------------------ >8"):
+            break  # git commit -v: the diff below is not part of the message
+        if not line.startswith("#"):
+            lines.append(line)
+    text = "\n".join(lines)
     words, _ = local_rules()
     errors = []
     if CO_AUTHOR.search(text):
@@ -126,7 +134,7 @@ def check_message(path: str) -> list[str]:
             errors.append("commit message: contains a banned word from .git/info/rules")
     first = text.strip().splitlines()[0] if text.strip() else ""
     if len(first) > 72:
-        errors.append("commit message: keep the subject under 72 characters")
+        errors.append("commit message: keep the subject within 72 characters")
     return errors
 
 

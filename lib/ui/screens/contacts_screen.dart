@@ -1,13 +1,14 @@
 import 'package:flutter/cupertino.dart';
 
 import '../../app.dart';
+import '../../l10n/l10n.dart';
 import '../../tdlib/td_client.dart';
 import '../format.dart';
 import '../layout/nav.dart';
 import '../tg_theme.dart';
 import '../widgets/avatar.dart';
+import '../widgets/tg_button.dart';
 import 'chat_screen.dart';
-import '../../l10n/l10n.dart';
 
 class ContactsScreen extends StatelessWidget {
   const ContactsScreen({super.key});
@@ -43,24 +44,41 @@ class ContactsList extends StatefulWidget {
 
 class _ContactsListState extends State<ContactsList> {
   List<int>? _ids;
+  bool _requested = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_ids != null) return;
-    AppScope.of(context).tg.client.send({'@type': 'getContacts'}).then((res) {
-      if (mounted) setState(() => _ids = (res['user_ids'] as List).cast<int>());
-    });
+    if (_requested) return;
+    _requested = true;
+    AppScope.of(context).tg.client
+        .send({'@type': 'getContacts'})
+        .then(
+          (res) {
+            if (mounted) {
+              setState(() => _ids = (res['user_ids'] as List).cast<int>());
+            }
+          },
+          onError: (Object _) {
+            if (mounted) setState(() => _ids = []);
+          },
+        );
   }
 
   Future<void> _open(int userId) async {
     final tg = AppScope.of(context).tg;
     final nav = TgNav.of(context);
-    final chat = await tg.client.send({
-      '@type': 'createPrivateChat',
-      'user_id': userId,
-      'force': false,
-    });
+    final TdObject chat;
+    try {
+      chat = await tg.client.send({
+        '@type': 'createPrivateChat',
+        'user_id': userId,
+        'force': false,
+      });
+    } on TdError catch (e) {
+      if (mounted) await showTgAlert(context, context.l10n.error, e.message);
+      return;
+    }
     if (!mounted) return;
     final chatId = chat['id'] as int;
     nav.open(context, TgNav.chatId(chatId), (_) => ChatScreen(chatId: chatId));

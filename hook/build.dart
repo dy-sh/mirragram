@@ -3,8 +3,8 @@ import 'dart:io';
 import 'package:code_assets/code_assets.dart';
 import 'package:hooks/hooks.dart';
 
-/// Bundles the prebuilt libtdjson from `.tdlib/out/<os>-<arch>[-simulator]/`
-/// (built by the scripts in `scripts/`).
+/// Bundles the prebuilt libtdjson from `.tdlib/out/<os>-<arch>[-simulator]/`.
+/// Only macOS has a build script so far (`scripts/build_tdlib_macos.sh`).
 void main(List<String> args) async => await build(args, (input, output) async {
   if (!input.config.buildCodeAssets) return;
 
@@ -23,7 +23,7 @@ void main(List<String> args) async => await build(args, (input, output) async {
   if (!File.fromUri(file).existsSync()) {
     stderr.writeln(
       'warning: TDLib not found at ${file.toFilePath()}. '
-      'Build it with a script from scripts/ (see README).',
+      'See README for how to build it.',
     );
     return;
   }

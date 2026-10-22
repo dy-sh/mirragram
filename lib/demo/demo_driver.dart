@@ -21,7 +21,7 @@ import '../ui/theme/palette.dart';
 ///   size W H        window size in logical pixels
 ///   theme NAME      dayClassic | day | night | nightTinted
 ///   lang CODE       en | ru | system
-///   pick P1|P2     files returned by the image picker instead of a dialog
+///   pick P1|P2      files returned by the image picker instead of a dialog
 ///   tap X Y         tap at a window point
 ///   scroll X Y DY   mouse wheel scroll
 ///   wait MS         pause
@@ -101,7 +101,7 @@ class _DemoDriverState extends State<DemoDriver> {
         );
         await _frames();
       case 'pick':
-        debugPickedImagePaths = a.sublist(1).join(' ').split('|');
+        demoPickedImagePaths = a.sublist(1).join(' ').split('|');
       case 'lang':
         widget.appearance.setLanguage(a[1] == 'system' ? null : a[1]);
         await _frames();

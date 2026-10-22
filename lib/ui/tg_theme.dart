@@ -37,7 +37,6 @@ abstract final class Tg {
   static int colorIndex(int id) => id.abs() % 7;
 
   static const chatListAvatar = 60.0;
-  static const chatListRowHeight = 78.0;
 
   /// From this width on, the layout switches to Telegram Desktop style.
   static const desktopBreakpoint = 700.0;

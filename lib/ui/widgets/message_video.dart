@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -11,6 +10,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 import '../../app.dart';
 import '../../l10n/l10n.dart';
 import '../../tdlib/td_client.dart';
+import '../../telegram/telegram_service.dart';
 import 'message_photo.dart';
 
 /// Animations up to this size are downloaded and played automatically.
@@ -51,7 +51,7 @@ class VideoCover extends StatelessWidget {
       return ImageFiltered(
         imageFilter: ui.ImageFilter.blur(sigmaX: 8, sigmaY: 8),
         child: Image.memory(
-          base64.decode(mini['data'] as String),
+          minithumbnailBytes(mini['data'] as String),
           fit: fit,
           gaplessPlayback: true,
         ),
@@ -87,10 +87,7 @@ class MessageVideo extends StatelessWidget {
     final file = tg.current(_file);
     final path = tg.downloadedPath(file);
     final bytes = file['size'] as int? ?? 0;
-    if (isAnimation &&
-        path == null &&
-        bytes <= _autoDownloadBytes &&
-        !tg.isDownloading(file)) {
+    if (isAnimation && path == null && bytes <= _autoDownloadBytes) {
       tg.download(file);
     }
 
@@ -106,22 +103,18 @@ class MessageVideo extends StatelessWidget {
     }
 
     final label = isAnimation
-        ? 'GIF'
+        ? l.gif
         : (path == null && bytes > 0
               ? '${formatDuration(media['duration'] as int? ?? 0)}, '
                     '${formatMegabytes(l, bytes)}'
               : formatDuration(media['duration'] as int? ?? 0));
 
     return GestureDetector(
-      onTap: () => Navigator.of(context, rootNavigator: true).push(
-        PageRouteBuilder<void>(
-          opaque: false,
-          pageBuilder: (_, _, _) => VideoPlayerPage(
-            file: _file,
-            cover: VideoCover(media: media),
-          ),
-          transitionsBuilder: (_, animation, _, child) =>
-              FadeTransition(opacity: animation, child: child),
+      onTap: () => openFullscreen(
+        context,
+        (_) => VideoPlayerPage(
+          file: _file,
+          cover: VideoCover(media: media),
         ),
       ),
       child: SizedBox.fromSize(
@@ -154,17 +147,15 @@ class MessageVideoNote extends StatelessWidget {
     final tg = AppScope.of(context).tg;
     final file = tg.current(note['video'] as TdObject);
     final path = tg.downloadedPath(file);
-    if (path == null && !tg.isDownloading(file)) tg.download(file);
+    if (path == null && (file['size'] as int? ?? 0) <= _autoDownloadBytes) {
+      tg.download(file);
+    }
     return GestureDetector(
-      onTap: () => Navigator.of(context, rootNavigator: true).push(
-        PageRouteBuilder<void>(
-          opaque: false,
-          pageBuilder: (_, _, _) => VideoPlayerPage(
-            file: file,
-            cover: VideoCover(media: note),
-          ),
-          transitionsBuilder: (_, animation, _, child) =>
-              FadeTransition(opacity: animation, child: child),
+      onTap: () => openFullscreen(
+        context,
+        (_) => VideoPlayerPage(
+          file: file,
+          cover: VideoCover(media: note),
         ),
       ),
       child: ClipOval(
@@ -182,9 +173,12 @@ class MessageVideoNote extends StatelessWidget {
                   child: _ProgressButton(progress: tg.downloadProgress(file)),
                 ),
               Positioned(
-                left: 24,
-                bottom: 18,
-                child: _Badge(formatDuration(note['duration'] as int? ?? 0)),
+                left: 0,
+                right: 0,
+                bottom: 16,
+                child: Center(
+                  child: _Badge(formatDuration(note['duration'] as int? ?? 0)),
+                ),
               ),
             ],
           ),
@@ -249,19 +243,20 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
   bool _controlsVisible = true;
   Timer? _hideTimer;
 
+  TelegramService? _tg;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final tg = AppScope.of(context).tg;
-    if (tg.downloadedPath(widget.file) == null) {
-      tg.download(widget.file, priority: 32);
-    }
+    _tg ??= AppScope.of(context).tg..download(widget.file, priority: 32);
   }
 
   @override
   void dispose() {
     _hideTimer?.cancel();
     _player?.dispose();
+    // Stop a large download nobody is waiting for any more.
+    _tg?.cancelDownload(widget.file);
     super.dispose();
   }
 

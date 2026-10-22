@@ -4,9 +4,9 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 
 import '../../app.dart';
+import '../../l10n/l10n.dart';
 import '../tg_theme.dart';
 import '../widgets/tg_button.dart';
-import '../../l10n/l10n.dart';
 
 class E2ePasswordScreen extends StatefulWidget {
   const E2ePasswordScreen({super.key, this.onSkip, this.onDone});
@@ -42,9 +42,12 @@ class _E2ePasswordScreenState extends State<E2ePasswordScreen> {
     final phrase = await generatePassphrase();
     if (!mounted) return;
     setState(() {
+      // Don't overwrite a password the user is typing.
+      if (_isNew && (_password.text.isEmpty || _password.text == _generated)) {
+        _password.text = phrase;
+        _confirm.clear();
+      }
       _generated = phrase;
-      _password.text = phrase;
-      _confirm.clear();
     });
   }
 
@@ -73,6 +76,14 @@ class _E2ePasswordScreenState extends State<E2ePasswordScreen> {
     try {
       await AppScope.of(context).e2e.setPassword(password);
       widget.onDone?.call();
+    } catch (_) {
+      if (mounted) {
+        await showTgAlert(
+          context,
+          context.l10n.error,
+          context.l10n.genericError,
+        );
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }

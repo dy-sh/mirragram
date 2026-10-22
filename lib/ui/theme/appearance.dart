@@ -130,9 +130,11 @@ class AppearanceController extends ChangeNotifier {
   // ------------------------------------------------------------------ private
 
   void _onTelegram() {
-    if (_patternsRequested || _tg.authStateType != 'authorizationStateReady') {
+    if (_tg.authStateType != 'authorizationStateReady') {
+      _patternsRequested = false;
       return;
     }
+    if (_patternsRequested) return;
     _patternsRequested = true;
     unawaited(_resolveDefaultPattern());
   }
@@ -190,8 +192,13 @@ class AppearanceController extends ChangeNotifier {
       'textSize': textSize,
       'language': languageCode,
     });
-    unawaited(_file.writeAsString(json).then((_) {}, onError: (Object _) {}));
+    // Writes are chained so an older state never overwrites a newer one.
+    _writes = _writes
+        .then((_) => _file.writeAsString(json))
+        .then((_) {}, onError: (Object _) {});
   }
+
+  Future<void> _writes = Future.value();
 
   @override
   void dispose() {

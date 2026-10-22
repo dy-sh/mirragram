@@ -4,8 +4,8 @@ import 'package:flutter/cupertino.dart';
 
 import '../../app.dart';
 import '../../e2e/e2e_service.dart';
-import '../../tdlib/td_client.dart';
 import '../../l10n/l10n.dart';
+import '../../tdlib/td_client.dart';
 import '../format.dart';
 import '../tg_theme.dart';
 import 'message_photo.dart';

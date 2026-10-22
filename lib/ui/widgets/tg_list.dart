@@ -130,14 +130,17 @@ class _TgCellState extends State<TgCell> {
               widget.leading!,
               const SizedBox(width: 15),
             ],
-            Text(
-              widget.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 17,
-                letterSpacing: -0.4,
-                color: fg ?? widget.titleColor ?? c.primaryText,
+            Flexible(
+              flex: 2,
+              child: Text(
+                widget.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 17,
+                  letterSpacing: -0.4,
+                  color: fg ?? widget.titleColor ?? c.primaryText,
+                ),
               ),
             ),
             const SizedBox(width: 8),

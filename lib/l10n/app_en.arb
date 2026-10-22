@@ -92,7 +92,6 @@
   "tabContacts": "Contacts",
   "tabChats": "Chats",
   "tabSettings": "Settings",
-  "edit": "Edit",
   "you": "You",
   "draft": "Draft: ",
   "selectChat": "Select a chat to start messaging",
@@ -277,6 +276,25 @@
   "@megabytes": {
     "placeholders": {
       "size": {
+        "type": "String"
+      }
+    }
+  },
+  "genericError": "Something went wrong. Please try again.",
+  "ok": "OK",
+  "gif": "GIF",
+  "unreadThousands": "{count}K",
+  "@unreadThousands": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "unknownError": "Error: {code}",
+  "@unknownError": {
+    "placeholders": {
+      "code": {
         "type": "String"
       }
     }

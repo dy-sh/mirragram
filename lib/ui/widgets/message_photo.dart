@@ -9,9 +9,37 @@ import 'package:flutter/services.dart';
 import '../../app.dart';
 import '../../tdlib/td_client.dart';
 
+/// Shows a full-screen viewer over everything, including the desktop
+/// sidebar.
+void openFullscreen(BuildContext context, WidgetBuilder builder) {
+  Navigator.of(context, rootNavigator: true).push(
+    PageRouteBuilder<void>(
+      opaque: false,
+      pageBuilder: (context, _, _) => builder(context),
+      transitionsBuilder: (_, animation, _, child) =>
+          FadeTransition(opacity: animation, child: child),
+    ),
+  );
+}
+
+final _minithumbnails = <String, Uint8List>{};
+
+/// Decoded once, so the same bytes (and the image cache entry) are reused
+/// on every rebuild.
+Uint8List minithumbnailBytes(String base64Data) {
+  final bytes = _minithumbnails.putIfAbsent(
+    base64Data,
+    () => base64.decode(base64Data),
+  );
+  if (_minithumbnails.length > 200) {
+    _minithumbnails.remove(_minithumbnails.keys.first);
+  }
+  return bytes;
+}
+
 /// Picks the smallest size that still covers [width] logical pixels.
 TdObject? photoSizeFor(TdObject photo, double width, double pixelRatio) {
-  final sizes = (photo['sizes'] as List? ?? []).cast<TdObject>()
+  final sizes = [...(photo['sizes'] as List? ?? []).cast<TdObject>()]
     ..sort((a, b) => (a['width'] as int).compareTo(b['width'] as int));
   if (sizes.isEmpty) return null;
   final needed = width * pixelRatio;
@@ -93,7 +121,7 @@ class MessagePhoto extends StatelessWidget {
       image = ImageFiltered(
         imageFilter: ui.ImageFilter.blur(sigmaX: 8, sigmaY: 8),
         child: Image.memory(
-          base64.decode(mini['data'] as String),
+          minithumbnailBytes(mini['data'] as String),
           width: size.width,
           height: size.height,
           fit: BoxFit.cover,
@@ -105,14 +133,7 @@ class MessagePhoto extends StatelessWidget {
     }
 
     return GestureDetector(
-      onTap: () => Navigator.of(context, rootNavigator: true).push(
-        PageRouteBuilder<void>(
-          opaque: false,
-          pageBuilder: (_, _, _) => PhotoViewer(photo: photo),
-          transitionsBuilder: (_, animation, _, child) =>
-              FadeTransition(opacity: animation, child: child),
-        ),
-      ),
+      onTap: () => openFullscreen(context, (_) => PhotoViewer(photo: photo)),
       child: SizedBox.fromSize(
         size: size,
         child: Stack(
@@ -165,7 +186,7 @@ class PhotoViewer extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               Image.memory(
-                base64.decode(mini['data'] as String),
+                minithumbnailBytes(mini['data'] as String),
                 fit: BoxFit.contain,
               ),
               const Center(child: MediaSpinner()),

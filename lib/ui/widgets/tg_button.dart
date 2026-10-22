@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 
+import '../../l10n/l10n.dart';
 import '../tg_theme.dart';
 
 class TgButton extends StatelessWidget {
@@ -111,7 +112,7 @@ Future<void> showTgAlert(
         CupertinoDialogAction(
           isDefaultAction: true,
           onPressed: () => Navigator.pop(context),
-          child: const Text('OK'),
+          child: Text(context.l10n.ok),
         ),
       ],
     ),

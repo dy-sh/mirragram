@@ -703,7 +703,8 @@ abstract final class FreeformGradient {
 abstract final class PatternCache {
   static final _cache = <String, Future<PictureInfo?>>{};
 
-  static Future<PictureInfo?> load(String path) => _cache[path] ??= _load(path);
+  static Future<PictureInfo?> load(String path) =>
+      _cache[path] ??= _load(path).whenComplete(() => _trim(_cache));
 
   static Future<PictureInfo?> _load(String path) async {
     try {
@@ -721,7 +722,8 @@ abstract final class PatternCache {
 abstract final class _ImageCache {
   static final _cache = <String, Future<ui.Image?>>{};
 
-  static Future<ui.Image?> load(String path) => _cache[path] ??= _load(path);
+  static Future<ui.Image?> load(String path) =>
+      _cache[path] ??= _load(path).whenComplete(() => _trim(_cache));
 
   static Future<ui.Image?> _load(String path) async {
     try {
@@ -763,5 +765,13 @@ class ChatWallpaper extends StatelessWidget {
         return WallpaperView(scope.appearance.wallpaper(colors));
       },
     );
+  }
+}
+
+/// Keeps the wallpaper caches small: thumbnails of many wallpapers are
+/// loaded while browsing, but only a few are shown at once.
+void _trim(Map<String, Object?> cache) {
+  while (cache.length > 24) {
+    cache.remove(cache.keys.first);
   }
 }

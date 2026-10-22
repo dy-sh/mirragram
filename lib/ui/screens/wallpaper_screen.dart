@@ -1,13 +1,13 @@
 import 'package:flutter/cupertino.dart';
 
 import '../../app.dart';
+import '../../l10n/l10n.dart';
 import '../../tdlib/td_client.dart';
-import '../theme/wallpaper.dart';
 import '../tg_theme.dart';
+import '../theme/wallpaper.dart';
 import '../widgets/tg_button.dart';
 import '../widgets/tg_list.dart';
 import 'appearance_screen.dart';
-import '../../l10n/l10n.dart';
 
 /// The account's wallpapers plus built-in colors, chosen separately for the
 /// day and night themes.
@@ -21,12 +21,12 @@ class WallpaperScreen extends StatefulWidget {
 }
 
 class _WallpaperScreenState extends State<WallpaperScreen> {
-  late final Future<List<WallpaperSpec>> _installed;
+  Future<List<WallpaperSpec>>? _installed;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _installed = AppScope.of(context).appearance
+    _installed ??= AppScope.of(context).appearance
         .installedWallpapers(dark: widget.dark)
         .catchError((Object _) => <WallpaperSpec>[]);
   }

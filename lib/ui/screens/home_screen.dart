@@ -2,14 +2,14 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 
 import '../../app.dart';
+import '../../l10n/l10n.dart';
 import '../layout/nav.dart';
-import '../theme/wallpaper.dart';
 import '../tg_theme.dart';
+import '../theme/wallpaper.dart';
 import '../widgets/message_bubble.dart';
 import 'chat_list_screen.dart';
 import 'contacts_screen.dart';
 import 'settings_screen.dart';
-import '../../l10n/l10n.dart';
 
 /// Tabs like Telegram for iPhone on narrow windows, two panes like
 /// Telegram Desktop on wide ones.
@@ -259,19 +259,6 @@ class _DesktopHomeState extends State<_DesktopHome> {
               Center(
                 child: Text(_tab.title(context.l10n), style: TgText.navTitle),
               ),
-              if (_tab == _Tab.chats)
-                Positioned(
-                  right: 4,
-                  child: CupertinoButton(
-                    padding: const EdgeInsets.all(8),
-                    onPressed: () {},
-                    child: Icon(
-                      CupertinoIcons.square_pencil,
-                      color: c.accent,
-                      size: 22,
-                    ),
-                  ),
-                ),
             ],
           ),
         ),

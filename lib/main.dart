@@ -45,11 +45,13 @@ Future<void> main() async {
       e2e.ingest([message]);
       final reshare = e2e.reshareGroupKey(message);
       if (reshare != null) {
-        tg.sendText(
-          message['chat_id'] as int,
-          reshare,
-          disableLinkPreview: true,
-        );
+        tg
+            .sendText(
+              message['chat_id'] as int,
+              reshare,
+              disableLinkPreview: true,
+            )
+            .catchError((_) => <String, dynamic>{});
       }
     });
 

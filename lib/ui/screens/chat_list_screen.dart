@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 
 import '../../app.dart';
 import '../../e2e/e2e_service.dart';
+import '../../l10n/l10n.dart';
 import '../../tdlib/td_client.dart';
 import '../format.dart';
 import '../layout/nav.dart';
@@ -9,7 +10,6 @@ import '../tg_theme.dart';
 import '../widgets/avatar.dart';
 import '../widgets/read_checks.dart';
 import 'chat_screen.dart';
-import '../../l10n/l10n.dart';
 
 class ChatListScreen extends StatefulWidget {
   const ChatListScreen({super.key});
@@ -30,16 +30,6 @@ class _ChatListScreenState extends State<ChatListScreen> {
         slivers: [
           CupertinoSliverNavigationBar(
             largeTitle: Text(context.l10n.tabChats),
-            leading: CupertinoButton(
-              padding: EdgeInsets.zero,
-              onPressed: () {},
-              child: Text(context.l10n.edit),
-            ),
-            trailing: CupertinoButton(
-              padding: EdgeInsets.zero,
-              onPressed: () {},
-              child: const Icon(CupertinoIcons.square_pencil, size: 26),
-            ),
             border: null,
             backgroundColor: c.navBar,
           ),
@@ -361,7 +351,7 @@ class _Badge extends StatelessWidget {
           borderRadius: BorderRadius.circular(10),
         ),
         child: Text(
-          count > 999 ? '${count ~/ 1000}K' : '$count',
+          count > 999 ? context.l10n.unreadThousands(count ~/ 1000) : '$count',
           style: TextStyle(color: textColor, fontSize: 14),
         ),
       ),

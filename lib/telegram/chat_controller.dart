@@ -25,14 +25,15 @@ class ChatController extends ChangeNotifier {
 
   Future<void> _loadInitial() async {
     // TDLib returns only locally cached messages first.
-    while (messages.length < 30 && !reachedStart) {
-      await loadOlder();
+    while (messages.length < 30 && !reachedStart && !_disposed) {
+      if (!await loadOlder()) return;
     }
-    unawaited(_scanForKeys());
+    unawaited(_scanForKeys().catchError((_) {}));
   }
 
-  Future<void> loadOlder() async {
-    if (loadingOlder || reachedStart) return;
+  /// Returns false if loading failed.
+  Future<bool> loadOlder() async {
+    if (loadingOlder || reachedStart || _disposed) return true;
     loadingOlder = true;
     try {
       final page = await _history(
@@ -42,10 +43,13 @@ class ChatController extends ChangeNotifier {
       if (page.isEmpty) {
         reachedStart = true;
       } else {
-        _e2e.ingest(page.reversed);
+        _e2e.ingest(page);
         _insert(page);
         _markRead(page);
       }
+      return true;
+    } on TdError {
+      return false;
     } finally {
       loadingOlder = false;
       if (!_disposed) notifyListeners();
@@ -60,7 +64,7 @@ class ChatController extends ChangeNotifier {
     for (var scanned = 0; scanned < 500 && !_disposed;) {
       final page = await _history(from, 100);
       if (page.isEmpty) break;
-      _e2e.ingest(page.reversed);
+      _e2e.ingest(page);
       scanned += page.length;
       from = page.last['id'] as int;
     }

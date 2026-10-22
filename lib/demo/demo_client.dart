@@ -12,7 +12,6 @@ import '../tdlib/td_client.dart';
 
 /// Fake TDLib for working on the UI without an account:
 ///   flutter run -d macos --dart-define=TG_DEMO=true
-///
 class DemoTdClient implements TdClient {
   DemoTdClient._(this._dir);
 
