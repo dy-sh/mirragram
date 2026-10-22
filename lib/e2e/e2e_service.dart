@@ -91,6 +91,8 @@ class E2eService extends ChangeNotifier {
 
   String _seedKey(int userId) => 'e2e_seed_$userId';
 
+  File _keysFile(int userId) => File(p.join(_dataDir.path, 'keys_$userId.bin'));
+
   Future<void> init(int userId) async {
     _userId = userId;
     final seed = await _secure.read(key: _seedKey(userId));
@@ -120,7 +122,7 @@ class E2eService extends ChangeNotifier {
     _proto = proto;
     _store = await KeyStore.open(
       sodium: _sodium,
-      file: File(p.join(_dataDir.path, 'keys_$_userId.bin')),
+      file: _keysFile(_userId!),
       storageKey: identity.storageKey,
       keyId: proto.keyId,
     );
@@ -129,8 +131,17 @@ class E2eService extends ChangeNotifier {
   }
 
   Future<void> reset() async {
-    if (_userId != null) await _secure.delete(key: _seedKey(_userId!));
+    final userId = _userId;
     _dispose();
+    if (userId != null) {
+      await _secure.delete(key: _seedKey(userId));
+      for (final file in [
+        _keysFile(userId),
+        File('${_keysFile(userId).path}.tmp'),
+      ]) {
+        if (await file.exists()) await file.delete();
+      }
+    }
     status = E2eStatus.loading;
     _userId = null;
     _changed();

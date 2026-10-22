@@ -46,7 +46,7 @@ class ChatEncryption {
 
   Future<void> enable() async {
     _e2e.store.setEncryptionEnabled(chatId, true);
-    if (!_e2e.store.hasAnnounced(chatId)) {
+    if (peerUserId != _tg.myUserId && !_e2e.store.hasAnnounced(chatId)) {
       await _tg.sendText(
         chatId,
         _e2e.announcementText(),
