@@ -46,11 +46,13 @@ This table will be updated as the client develops.
 - **Key announcement.** Turning encryption on in a chat posts your public keys,
   signed with Ed25519. A key is accepted only if the signed user id matches the
   Telegram sender.
-- **Private chats.** XChaCha20-Poly1305 with a pairwise key from X25519. Your
-  own sent messages stay readable on all your devices.
+- **Private chats.** XChaCha20-Poly1305 with a pairwise key from X25519,
+  bound to the sender and recipient, so a message can't be replayed by
+  someone else or in another chat. Your own sent messages stay readable on
+  all your devices.
 - **Groups.** A random group key, wrapped for every member with a known key,
-  up to 36 members per message. Group messages are signed by the sender and
-  bound to the chat id.
+  up to 36 members per message. The key id is derived from the key itself.
+  Group messages are signed by the sender and bound to the chat id.
 - **Safety number.** 60 digits derived from both keys, to compare out of band.
 
 ## Features
@@ -86,3 +88,18 @@ account or TDLib credentials.
 
 Tests: `flutter test`. Repository checks: `python3 scripts/check_rules.py --all`
 (`--install-hooks` runs them before every commit).
+
+## Credits
+
+- [TDLib](https://github.com/tdlib/td) — Boost Software License 1.0.
+- [libsodium](https://libsodium.org) via the
+  [sodium](https://pub.dev/packages/sodium) package — ISC License.
+- [media_kit](https://github.com/media-kit/media-kit) for video playback.
+- Passphrase word list: [EFF Large Wordlist](https://www.eff.org/dice) by the
+  Electronic Frontier Foundation, licensed under
+  [CC BY 3.0 US](https://creativecommons.org/licenses/by/3.0/us/).
+
+
+## License
+
+GPL-3.0. See [LICENSE](LICENSE).
