@@ -2,6 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'dart:ui' as ui;
+
+import 'package:flutter/painting.dart';
 
 import 'package:path/path.dart' as p;
 
@@ -27,6 +30,7 @@ class DemoTdClient implements TdClient {
   static Future<TdClient> create(Directory dir) async {
     final client = DemoTdClient._(dir);
     await client._writePattern();
+    await client._writePhotos();
     scheduleMicrotask(client._start);
     return client;
   }
@@ -64,21 +68,19 @@ class DemoTdClient implements TdClient {
           'user_ids': [2, 3, 4, 5],
         };
       case 'sendMessage':
+        return _send(
+          request['chat_id'] as int,
+          request['input_message_content'] as TdObject,
+        );
+      case 'sendMessageAlbum':
         final chatId = request['chat_id'] as int;
-        final text =
-            ((request['input_message_content'] as TdObject)['text']
-                    as TdObject)['text']
-                as String;
-        final m = _message(chatId, _me, text, _now + 1, out: true);
-        _messages.putIfAbsent(chatId, () => []).add(m);
-        _emit({'@type': 'updateNewMessage', 'message': m});
-        _emit({
-          '@type': 'updateChatLastMessage',
-          'chat_id': chatId,
-          'last_message': m,
-          'positions': <Object>[],
-        });
-        return m;
+        return {
+          '@type': 'messages',
+          'messages': [
+            for (final c in request['input_message_contents'] as List)
+              _send(chatId, c as TdObject),
+          ],
+        };
       case 'getInstalledBackgrounds':
         return {
           '@type': 'backgrounds',
@@ -233,6 +235,11 @@ class DemoTdClient implements TdClient {
         (3, 'Has anyone tried the new build?', 86400 * 2),
         (4, 'Yes, it runs smoothly on my laptop', 86400 * 2 - 60),
         (4, 'But it stutters on the phone', 86400 * 2 - 50),
+        if (_hasVideos) ...[
+          (3, '[video] Gameplay from the new build', 86400 * 2 - 40),
+          (4, '[gif]', 86400 * 2 - 30),
+          (4, '[note]', 86400 * 2 - 20),
+        ],
         (_me, 'FPS drops by about 15-20%, but it’s too early to say', 86400),
       ],
       pinned: true,
@@ -241,6 +248,9 @@ class DemoTdClient implements TdClient {
       (2, 'Hi! Will you be at the meeting tomorrow?', 7200),
       (_me, "Yes, I'll be there by ten", 7100),
       (2, 'Great 👍', 7000),
+      (2, '[photo 0] The view from the office today', 3000),
+      (2, '[photo 1]', 2900),
+      (_me, '[photo 0]', 2000),
       (2, 'Please bring the project documents', 600),
     ], unread: 2);
     chat(777000, 'Telegram', private(777000), [
@@ -285,25 +295,240 @@ class DemoTdClient implements TdClient {
         : {'@type': 'userStatusOffline', 'was_online': _now - 1800},
   };
 
+  TdObject _send(int chatId, TdObject input) {
+    final m = switch (input['@type']) {
+      'inputMessagePhoto' => _photoMessage(
+        chatId,
+        _me,
+        _localFile(
+          ((input['photo'] as TdObject)['photo'] as TdObject)['path'] as String,
+        ),
+        (input['photo'] as TdObject)['width'] as int,
+        (input['photo'] as TdObject)['height'] as int,
+        (input['caption'] as TdObject)['text'] as String,
+        _now + 1,
+      ),
+      _ => _message(
+        chatId,
+        _me,
+        (input['text'] as TdObject)['text'] as String,
+        _now + 1,
+        out: true,
+      ),
+    };
+    _messages.putIfAbsent(chatId, () => []).add(m);
+    _emit({'@type': 'updateNewMessage', 'message': m});
+    _emit({
+      '@type': 'updateChatLastMessage',
+      'chat_id': chatId,
+      'last_message': m,
+      'positions': <Object>[],
+    });
+    return m;
+  }
+
+  /// `[photo N] caption` in demo history becomes a photo message.
   TdObject _message(
     int chatId,
     int sender,
     String text,
     int date, {
     required bool out,
-  }) => {
+  }) {
+    final photo = RegExp(
+      r'^\[photo (\d)\] ?(.*)$',
+      dotAll: true,
+    ).firstMatch(text);
+    if (photo != null) {
+      final (file, w, h) = _photos[int.parse(photo.group(1)!)];
+      return _photoMessage(chatId, sender, file, w, h, photo.group(2)!, date);
+    }
+    final video = RegExp(
+      r'^\[(video|gif|note)\] ?(.*)$',
+      dotAll: true,
+    ).firstMatch(text);
+    if (video != null) {
+      return _videoMessage(
+        chatId,
+        sender,
+        video.group(1)!,
+        video.group(2)!,
+        date,
+      );
+    }
+    return {
+      '@type': 'message',
+      'id': _nextMessageId++,
+      'chat_id': chatId,
+      'sender_id': {'@type': 'messageSenderUser', 'user_id': sender},
+      'is_outgoing': out,
+      'date': date,
+      'edit_date': 0,
+      'content': {
+        '@type': 'messageText',
+        'text': {
+          '@type': 'formattedText',
+          'text': text,
+          'entities': <Object>[],
+        },
+      },
+    };
+  }
+
+  TdObject _photoMessage(
+    int chatId,
+    int sender,
+    TdObject file,
+    int width,
+    int height,
+    String caption,
+    int date,
+  ) => {
     '@type': 'message',
     'id': _nextMessageId++,
     'chat_id': chatId,
     'sender_id': {'@type': 'messageSenderUser', 'user_id': sender},
-    'is_outgoing': out,
+    'is_outgoing': sender == _me,
     'date': date,
     'edit_date': 0,
     'content': {
-      '@type': 'messageText',
-      'text': {'@type': 'formattedText', 'text': text, 'entities': <Object>[]},
+      '@type': 'messagePhoto',
+      'photo': {
+        '@type': 'photo',
+        'sizes': [
+          {
+            '@type': 'photoSize',
+            'type': 'y',
+            'photo': file,
+            'width': width,
+            'height': height,
+          },
+        ],
+      },
+      'caption': {'@type': 'formattedText', 'text': caption},
     },
   };
+
+  /// The app doesn't generate videos; demo shows them only if
+  /// `demo_video.mp4`, `demo_gif.mp4` and `demo_note.mp4` exist in the demo
+  /// data directory.
+  bool get _hasVideos => [
+    'video',
+    'gif',
+    'note',
+  ].every((k) => File(p.join(_dir.path, 'demo_$k.mp4')).existsSync());
+
+  TdObject _videoMessage(
+    int chatId,
+    int sender,
+    String kind,
+    String caption,
+    int date,
+  ) {
+    final file = _localFile(p.join(_dir.path, 'demo_$kind.mp4'));
+    final (cover, w, h) = _photos[kind == 'note' ? 1 : 0];
+    final thumbnail = {
+      '@type': 'thumbnail',
+      'format': {'@type': 'thumbnailFormatPng'},
+      'width': w,
+      'height': h,
+      'file': cover,
+    };
+    final content = switch (kind) {
+      'note' => {
+        '@type': 'messageVideoNote',
+        'video_note': {
+          '@type': 'videoNote',
+          'duration': 5,
+          'length': 384,
+          'thumbnail': thumbnail,
+          'video': file,
+        },
+      },
+      'gif' => {
+        '@type': 'messageAnimation',
+        'animation': {
+          '@type': 'animation',
+          'duration': 3,
+          'width': 480,
+          'height': 360,
+          'thumbnail': thumbnail,
+          'animation': file,
+        },
+        'caption': {'@type': 'formattedText', 'text': caption},
+      },
+      _ => {
+        '@type': 'messageVideo',
+        'video': {
+          '@type': 'video',
+          'duration': 8,
+          'width': 1280,
+          'height': 720,
+          'thumbnail': thumbnail,
+          'video': file,
+        },
+        'caption': {'@type': 'formattedText', 'text': caption},
+      },
+    };
+    return {
+      '@type': 'message',
+      'id': _nextMessageId++,
+      'chat_id': chatId,
+      'sender_id': {'@type': 'messageSenderUser', 'user_id': sender},
+      'is_outgoing': sender == _me,
+      'date': date,
+      'edit_date': 0,
+      'content': content,
+    };
+  }
+
+  var _nextFileId = 900100;
+
+  TdObject _localFile(String path) => {
+    '@type': 'file',
+    'id': _nextFileId++,
+    'local': {
+      '@type': 'localFile',
+      'path': path,
+      'is_downloading_completed': true,
+    },
+  };
+
+  final _photos = <(TdObject, int, int)>[];
+
+  /// Generated landscape and portrait pictures for demo photo messages.
+  Future<void> _writePhotos() async {
+    for (final (i, w, h, colors) in [
+      (0, 1280, 960, const [Color(0xFF2E86DE), Color(0xFF48DBFB)]),
+      (1, 900, 1200, const [Color(0xFFEE5253), Color(0xFFFECA57)]),
+    ]) {
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder);
+      final rect = Rect.fromLTWH(0, 0, w.toDouble(), h.toDouble());
+      canvas.drawRect(
+        rect,
+        Paint()
+          ..shader = LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: colors,
+          ).createShader(rect),
+      );
+      final rnd = Random(i);
+      for (var k = 0; k < 18; k++) {
+        canvas.drawCircle(
+          Offset(rnd.nextDouble() * w, rnd.nextDouble() * h),
+          30 + rnd.nextDouble() * 140,
+          Paint()..color = const Color(0x33FFFFFF),
+        );
+      }
+      final image = await recorder.endRecording().toImage(w, h);
+      final png = await image.toByteData(format: ui.ImageByteFormat.png);
+      final path = p.join(_dir.path, 'demo_photo_$i.png');
+      await File(path).writeAsBytes(png!.buffer.asUint8List());
+      _photos.add((_localFile(path), w, h));
+    }
+  }
 
   // ------------------------------------------------------------- backgrounds
 

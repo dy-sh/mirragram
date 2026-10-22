@@ -349,6 +349,57 @@ class TelegramService extends ChangeNotifier {
 
   // ------------------------------------------------------------------- files
 
+  TdObject current(TdObject file) => files[file['id'] as int] ?? file;
+
+  /// Returns the local path if the file is fully downloaded.
+  String? downloadedPath(TdObject? file) {
+    if (file == null) return null;
+    final local = current(file)['local'] as TdObject;
+    return local['is_downloading_completed'] == true
+        ? local['path'] as String
+        : null;
+  }
+
+  /// Download progress from 0 to 1.
+  double downloadProgress(TdObject file) {
+    final f = current(file);
+    final total = (f['size'] as int? ?? 0) > 0
+        ? f['size'] as int
+        : f['expected_size'] as int? ?? 0;
+    final done = (f['local'] as TdObject)['downloaded_size'] as int? ?? 0;
+    return total == 0 ? 0 : (done / total).clamp(0, 1);
+  }
+
+  bool isDownloading(TdObject file) =>
+      (current(file)['local'] as TdObject)['is_downloading_active'] == true;
+
+  void download(TdObject file, {int priority = 1}) {
+    unawaited(
+      client
+          .send({
+            '@type': 'downloadFile',
+            'file_id': file['id'],
+            'priority': priority,
+            'offset': 0,
+            'limit': 0,
+            'synchronous': false,
+          })
+          .catchError((_) => <String, dynamic>{}),
+    );
+  }
+
+  void cancelDownload(TdObject file) {
+    unawaited(
+      client
+          .send({
+            '@type': 'cancelDownloadFile',
+            'file_id': file['id'],
+            'only_if_pending': false,
+          })
+          .catchError((_) => <String, dynamic>{}),
+    );
+  }
+
   /// Returns the local path, or starts the download and returns null.
   String? localPath(TdObject? file) {
     if (file == null) return null;
@@ -401,6 +452,42 @@ class TelegramService extends ChangeNotifier {
       'clear_draft': true,
     },
   });
+
+  /// Several photos are sent as an album with the caption on the first one.
+  Future<void> sendPhotos(
+    int chatId,
+    List<({String path, int width, int height})> photos,
+    String caption,
+  ) {
+    TdObject content(int i) => {
+      '@type': 'inputMessagePhoto',
+      'photo': {
+        '@type': 'inputPhoto',
+        'photo': {'@type': 'inputFileLocal', 'path': photos[i].path},
+        'width': photos[i].width,
+        'height': photos[i].height,
+      },
+      'caption': {
+        '@type': 'formattedText',
+        'text': i == 0 ? caption : '',
+        'entities': [],
+      },
+    };
+    if (photos.length == 1) {
+      return client.send({
+        '@type': 'sendMessage',
+        'chat_id': chatId,
+        'input_message_content': content(0),
+      });
+    }
+    return client.send({
+      '@type': 'sendMessageAlbum',
+      'chat_id': chatId,
+      'input_message_contents': [
+        for (var i = 0; i < photos.length; i++) content(i),
+      ],
+    });
+  }
 
   @override
   void dispose() {

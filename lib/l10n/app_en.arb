@@ -260,5 +260,25 @@
   "logOutMessage": "Encryption keys will be removed from this device. You can restore them with the same encryption password.",
   "language": "Language",
   "languageSystem": "System",
-  "languageName": "English"
+  "languageName": "English",
+  "sendPhotos": "{count, plural, =1{Send Photo} other{Send {count} Photos}}",
+  "@sendPhotos": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "captionPlaceholder": "Add a caption…",
+  "send": "Send",
+  "photosNotEncrypted": "Photos are sent without encryption.",
+  "photoTooLarge": "Photos larger than 10 MB are not supported yet.",
+  "megabytes": "{size} MB",
+  "@megabytes": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  }
 }

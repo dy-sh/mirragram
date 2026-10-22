@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
+import 'package:media_kit/media_kit.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sodium/sodium_sumo.dart';
@@ -15,6 +16,7 @@ import 'ui/theme/appearance.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  MediaKit.ensureInitialized();
   try {
     final sodium = await SodiumSumoInit.init();
     var dataDir = await getApplicationSupportDirectory();

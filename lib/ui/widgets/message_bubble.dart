@@ -1,12 +1,16 @@
+import 'dart:math' as math;
+
 import 'package:flutter/cupertino.dart';
 
 import '../../app.dart';
 import '../../e2e/e2e_service.dart';
 import '../../tdlib/td_client.dart';
+import '../../l10n/l10n.dart';
 import '../format.dart';
 import '../tg_theme.dart';
+import 'message_photo.dart';
+import 'message_video.dart';
 import 'read_checks.dart';
-import '../../l10n/l10n.dart';
 
 /// The time and checks sit inside the bubble and the text flows around them.
 class MessageBubble extends StatelessWidget {
@@ -41,43 +45,38 @@ class MessageBubble extends StatelessWidget {
     final encrypted = e2e is E2eText;
     final edited = (message['edit_date'] as int? ?? 0) > 0;
 
-    final meta = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (encrypted)
-          Padding(
-            padding: const EdgeInsets.only(right: 3),
-            child: Icon(CupertinoIcons.lock_fill, size: 10, color: metaColor),
-          ),
-        if (edited)
-          Text(
-            context.l10n.edited,
-            style: TextStyle(
-              fontSize: 11,
-              color: metaColor,
-              fontStyle: FontStyle.italic,
-            ),
-          ),
-        Text(
-          hhmm(fromUnix(message['date'] as int)),
-          style: TextStyle(fontSize: 11, color: metaColor),
-        ),
-        if (_out) ...[
-          const SizedBox(width: 3),
-          ReadChecks(
-            read: read,
-            pending: message['sending_state'] != null,
-            color: metaColor,
-            size: 12,
-          ),
-        ],
-      ],
+    final meta = _meta(
+      context,
+      metaColor,
+      encrypted: encrypted,
+      edited: edited,
     );
     // Space reserved for the time at the end of the last line.
     final metaReserve =
         40.0 + (_out ? 18 : 0) + (encrypted ? 13 : 0) + (edited ? 28 : 0);
 
-    final (text, style) = _body(context, c, textSize);
+    final content = message['content'] as TdObject;
+    if (e2e == null && content['@type'] == 'messageVideoNote') {
+      return _videoNote(context, content['video_note'] as TdObject);
+    }
+    final media = e2e == null ? _media(content) : null;
+    final caption = media == null
+        ? ''
+        : ((content['caption'] as TdObject?)?['text'] as String? ?? '');
+    if (media != null && caption.isEmpty && senderName == null) {
+      return _mediaOnly(context, media);
+    }
+
+    final (text, style) = media != null
+        ? (
+            caption,
+            TgText.message.copyWith(
+              fontSize: textSize,
+              color: _out ? c.bubbleOutText : c.bubbleInText,
+            ),
+          )
+        : _body(context, c, textSize);
+    final photoSize = media?.size;
 
     return Padding(
       padding: EdgeInsets.only(
@@ -92,47 +91,235 @@ class MessageBubble extends StatelessWidget {
           tail: tail,
         ),
         child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: maxWidth, minWidth: 60),
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(
-              _out ? 11 : (tail ? 11 + BubblePainter.tailWidth : 11),
-              6,
-              _out ? (tail ? 11 + BubblePainter.tailWidth : 11) : 11,
-              6,
-            ),
-            child: Stack(
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (senderName != null)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 1),
-                        child: Text(
-                          senderName!,
-                          style: TextStyle(
-                            fontSize: textSize - 2,
-                            fontWeight: FontWeight.w600,
-                            color: senderColor,
+          constraints: BoxConstraints(
+            maxWidth: photoSize == null
+                ? maxWidth
+                : photoSize.width + 4 + _tailPad,
+            minWidth: 60,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (media != null && senderName != null)
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    _out ? 11 : 11 + _tailPad,
+                    6,
+                    11,
+                    4,
+                  ),
+                  child: _senderLabel(textSize),
+                ),
+              if (media != null && photoSize != null)
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    _out ? 2 : 2 + _tailPad,
+                    2,
+                    _out ? 2 + _tailPad : 2,
+                    caption.isEmpty ? 2 : 0,
+                  ),
+                  child: ClipRRect(
+                    borderRadius: caption.isEmpty
+                        ? BorderRadius.circular(BubblePainter.radius - 4)
+                        : const BorderRadius.vertical(
+                            top: Radius.circular(BubblePainter.radius - 2),
+                            bottom: Radius.circular(4),
                           ),
-                        ),
-                      ),
-                    Text.rich(
-                      TextSpan(
+                    child: Stack(
+                      children: [
+                        media.build(photoSize),
+                        if (caption.isEmpty)
+                          Positioned(
+                            right: 6,
+                            bottom: 6,
+                            child: _metaPill(context),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              if (media == null || caption.isNotEmpty)
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    _out ? 11 : (tail ? 11 + BubblePainter.tailWidth : 11),
+                    6,
+                    _out ? (tail ? 11 + BubblePainter.tailWidth : 11) : 11,
+                    6,
+                  ),
+                  child: Stack(
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          TextSpan(text: text, style: style),
-                          WidgetSpan(
-                            child: SizedBox(width: metaReserve, height: 14),
+                          if (senderName != null && media == null)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 1),
+                              child: _senderLabel(textSize),
+                            ),
+                          Text.rich(
+                            TextSpan(
+                              children: [
+                                TextSpan(text: text, style: style),
+                                WidgetSpan(
+                                  child: SizedBox(
+                                    width: metaReserve,
+                                    height: 14,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
-                    ),
-                  ],
+                      Positioned(right: 0, bottom: 0, child: meta),
+                    ],
+                  ),
                 ),
-                Positioned(right: 0, bottom: 0, child: meta),
-              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  static const _photoMaxWidth = 320.0;
+
+  Widget _senderLabel(double textSize) => Text(
+    senderName!,
+    style: TextStyle(
+      fontSize: textSize - 2,
+      fontWeight: FontWeight.w600,
+      color: senderColor,
+    ),
+  );
+
+  double get _tailPad => tail ? BubblePainter.tailWidth : 0;
+
+  Widget _meta(
+    BuildContext context,
+    Color color, {
+    required bool encrypted,
+    required bool edited,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (encrypted)
+          Padding(
+            padding: const EdgeInsets.only(right: 3),
+            child: Icon(CupertinoIcons.lock_fill, size: 10, color: color),
+          ),
+        if (edited)
+          Text(
+            context.l10n.edited,
+            style: TextStyle(
+              fontSize: 11,
+              color: color,
+              fontStyle: FontStyle.italic,
             ),
+          ),
+        Text(
+          hhmm(fromUnix(message['date'] as int)),
+          style: TextStyle(fontSize: 11, color: color),
+        ),
+        if (_out) ...[
+          const SizedBox(width: 3),
+          ReadChecks(
+            read: read,
+            pending: message['sending_state'] != null,
+            color: color,
+            size: 12,
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// Photo, video or GIF with its display size.
+  _Media? _media(TdObject content) {
+    final uploading = message['sending_state'] != null;
+    final width = math.min(maxWidth, _photoMaxWidth);
+    switch (content['@type']) {
+      case 'messagePhoto':
+        final photo = content['photo'] as TdObject;
+        return _Media(
+          photoDisplaySize(photo, width),
+          (size) =>
+              MessagePhoto(photo: photo, size: size, uploading: uploading),
+        );
+      case 'messageVideo' || 'messageAnimation':
+        final isAnimation = content['@type'] == 'messageAnimation';
+        final video =
+            (isAnimation ? content['animation'] : content['video']) as TdObject;
+        return _Media(
+          mediaDisplaySize(
+            video['width'] as int? ?? 0,
+            video['height'] as int? ?? 0,
+            width,
+          ),
+          (size) => MessageVideo(
+            media: video,
+            size: size,
+            isAnimation: isAnimation,
+            uploading: uploading,
+          ),
+        );
+      default:
+        return null;
+    }
+  }
+
+  Widget _videoNote(BuildContext context, TdObject note) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      child: Stack(
+        children: [
+          MessageVideoNote(note: note),
+          Positioned(right: 4, bottom: 4, child: _metaPill(context)),
+        ],
+      ),
+    );
+  }
+
+  Widget _metaPill(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+    decoration: BoxDecoration(
+      color: const Color(0x80000000),
+      borderRadius: BorderRadius.circular(10),
+    ),
+    child: _meta(
+      context,
+      const Color(0xFFFFFFFF),
+      encrypted: false,
+      edited: (message['edit_date'] as int? ?? 0) > 0,
+    ),
+  );
+
+  /// Media without a caption: no bubble background, the time sits on the
+  /// media.
+  Widget _mediaOnly(BuildContext context, _Media media) {
+    final size = media.size;
+    final full = Size(size.width + _tailPad, size.height);
+    return Padding(
+      padding: EdgeInsets.only(
+        left: _out ? 0 : (tail ? 0 : BubblePainter.tailWidth),
+        right: _out ? (tail ? 0 : BubblePainter.tailWidth) : 0,
+      ),
+      child: ClipPath(
+        clipper: _BubbleClipper(out: _out, tail: tail),
+        child: SizedBox.fromSize(
+          size: full,
+          child: Stack(
+            children: [
+              media.build(full),
+              Positioned(
+                right: 6 + (_out ? _tailPad : 0),
+                bottom: 6,
+                child: _metaPill(context),
+              ),
+            ],
           ),
         ),
       ),
@@ -164,6 +351,26 @@ class MessageBubble extends StatelessWidget {
       },
     };
   }
+}
+
+class _Media {
+  const _Media(this.size, this.build);
+
+  final Size size;
+  final Widget Function(Size size) build;
+}
+
+class _BubbleClipper extends CustomClipper<Path> {
+  _BubbleClipper({required this.out, required this.tail});
+
+  final bool out;
+  final bool tail;
+
+  @override
+  Path getClip(Size size) => BubblePainter.shape(size, tail: tail, out: out);
+
+  @override
+  bool shouldReclip(_BubbleClipper old) => old.out != out || old.tail != tail;
 }
 
 class BubblePainter extends CustomPainter {

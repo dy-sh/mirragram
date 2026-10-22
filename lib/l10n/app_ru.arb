@@ -166,5 +166,11 @@
   "logOutMessage": "Ключи шифрования будут удалены с этого устройства. Восстановить их можно тем же паролем шифрования.",
   "language": "Язык",
   "languageSystem": "Как в системе",
-  "languageName": "Русский"
+  "languageName": "Русский",
+  "sendPhotos": "{count, plural, =1{Отправить фото} other{Отправить {count} фото}}",
+  "captionPlaceholder": "Добавить подпись…",
+  "send": "Отправить",
+  "photosNotEncrypted": "Фото отправляются без шифрования.",
+  "photoTooLarge": "Фото больше 10 МБ пока не поддерживаются.",
+  "megabytes": "{size} МБ"
 }

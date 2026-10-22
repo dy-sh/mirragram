@@ -27,7 +27,7 @@ Windows, Linux and macOS.
 | What a leak exposes | everything, to whoever gets into the account | the chats on that device | the whole history, to whoever learns the password |
 | Offline password guessing | — | not possible, keys are random | possible against stored ciphertext; slowed by Argon2id, a generated 6-word passphrase is the default |
 | Metadata (who, when, how much) | visible to Telegram | visible to Telegram | visible to Telegram |
-| Media and files | ✅ | ✅ | ❌ text only for now |
+| Media and files | ✅ | ✅ | photos and videos, not encrypted yet; other files are planned |
 | Message length | 4096 characters | 4096 characters | ≈3 KB of text (≈3,000 Latin or ≈1,500 Cyrillic characters) |
 | Search | ✅ on the server | on the device only | ❌ local search is planned |
 | Auto-delete timer | ✅ | ✅ | ❌ not yet |
@@ -60,6 +60,10 @@ This table will be updated as the client develops.
 - Themes: Day Classic, Day, Night and Night Blue, with automatic night mode.
 - Chat wallpapers from your Telegram account (gradients, patterns, images) and
   built-in colors.
+- Photos: viewing, a full-screen viewer, sending single photos and albums
+  with a caption.
+- Videos, GIFs and video messages: GIFs and video messages play silently in
+  the chat, videos open in a full-screen player.
 - English and Russian; the system language is used by default.
 
 ## Building

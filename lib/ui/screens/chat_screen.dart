@@ -7,6 +7,8 @@ import '../../tdlib/td_client.dart';
 import '../../telegram/chat_controller.dart';
 import '../format.dart';
 import '../layout/nav.dart';
+import '../media/pick_images.dart';
+import '../media/send_photos_sheet.dart';
 import '../theme/wallpaper.dart';
 import '../tg_theme.dart';
 import '../widgets/avatar.dart';
@@ -81,6 +83,31 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  Future<void> _attach() async {
+    final l = context.l10n;
+    final tg = AppScope.of(context).tg;
+    final encrypted = _encryption(context).state == ChatE2eState.on;
+    final images = await pickImages();
+    if (images.isEmpty || !mounted) return;
+    if (images.any((i) => i.bytes > maxPhotoBytes)) {
+      return showTgAlert(context, l.error, l.photoTooLarge);
+    }
+    final caption = await showSendPhotosSheet(
+      context,
+      images,
+      encryptedChat: encrypted,
+    );
+    if (caption == null) return;
+    try {
+      await tg.sendPhotos(widget.chatId, [
+        for (final i in images)
+          (path: i.path, width: i.width, height: i.height),
+      ], caption);
+    } on TdError catch (e) {
+      if (mounted) await showTgAlert(context, l.error, e.message);
+    }
+  }
+
   void _openEncryption() => Navigator.of(context).push(
     CupertinoPageRoute<void>(
       builder: (_) => ChatEncryptionScreen(chatId: widget.chatId),
@@ -130,6 +157,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       desktop: desktop,
                       onSend: _send,
                       onLockTap: _openEncryption,
+                      onAttach: _attach,
                     ),
                   ],
                 ),
@@ -512,6 +540,7 @@ class _InputPanel extends StatelessWidget {
     required this.desktop,
     required this.onSend,
     required this.onLockTap,
+    required this.onAttach,
   });
 
   final TextEditingController controller;
@@ -520,6 +549,7 @@ class _InputPanel extends StatelessWidget {
   final bool desktop;
   final VoidCallback onSend;
   final VoidCallback onLockTap;
+  final VoidCallback onAttach;
 
   @override
   Widget build(BuildContext context) {
@@ -584,7 +614,7 @@ class _InputPanel extends StatelessWidget {
           CupertinoButton(
             padding: const EdgeInsets.all(6),
             minimumSize: const Size(36, 36),
-            onPressed: () {},
+            onPressed: onAttach,
             child: Icon(CupertinoIcons.paperclip, color: c.panelIcon, size: 26),
           ),
           Expanded(child: field),
