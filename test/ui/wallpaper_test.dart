@@ -1,6 +1,6 @@
 import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tel_client/ui/theme/wallpaper.dart';
+import 'package:veilgram/ui/theme/wallpaper.dart';
 
 void main() {
   test('parses a TDLib pattern with a freeform gradient', () {

@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.telclient" "\0"
-            VALUE "FileDescription", "TelClient" "\0"
+            VALUE "CompanyName", "Veilgram contributors" "\0"
+            VALUE "FileDescription", "Veilgram" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "tel_client" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 TelClient contributors" "\0"
-            VALUE "OriginalFilename", "tel_client.exe" "\0"
-            VALUE "ProductName", "TelClient" "\0"
+            VALUE "InternalName", "veilgram" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 Veilgram contributors" "\0"
+            VALUE "OriginalFilename", "veilgram.exe" "\0"
+            VALUE "ProductName", "Veilgram" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

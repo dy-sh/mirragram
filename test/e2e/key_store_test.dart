@@ -3,8 +3,8 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sodium/sodium_sumo.dart';
-import 'package:tel_client/crypto/protocol.dart';
-import 'package:tel_client/e2e/key_store.dart';
+import 'package:veilgram/crypto/protocol.dart';
+import 'package:veilgram/e2e/key_store.dart';
 
 void main() {
   late SodiumSumo sodium;

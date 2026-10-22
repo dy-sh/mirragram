@@ -1,6 +1,6 @@
 import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tel_client/ui/widgets/message_photo.dart';
+import 'package:veilgram/ui/widgets/message_photo.dart';
 
 Map<String, dynamic> _size(String type, int w, int h) => {
   '@type': 'photoSize',

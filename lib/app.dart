@@ -57,7 +57,7 @@ class TelApp extends StatelessWidget {
         listenable: appearance,
         builder: (context, _) => CupertinoApp(
           debugShowCheckedModeBanner: false,
-          title: 'TelClient',
+          title: 'Veilgram',
           locale: appearance.locale,
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,

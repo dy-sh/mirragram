@@ -1,4 +1,4 @@
-package com.telclient.tel_client
+package app.veilgram
 
 import io.flutter.embedding.android.FlutterActivity
 
