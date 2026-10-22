@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:sodium/sodium_sumo.dart';
 
 import 'identity.dart';
@@ -11,9 +12,11 @@ import 'identity.dart';
 ///
 /// Types:
 ///   announce  user's public keys, signed with their Ed25519 key.
-///   direct    XChaCha20-Poly1305 with the pairwise key (X25519 of both).
+///   direct    XChaCha20-Poly1305 with the pairwise key (X25519 of both),
+///             bound to the sender and recipient user ids.
 ///   group     XChaCha20-Poly1305 with the group key + sender's signature.
 ///   groupKey  new group key wrapped for each member, signed by the sender.
+///             The key id is a hash of the key, so ids can't be reused.
 abstract final class Protocol {
   static const version = 1;
   static const textPrefix = '🔒';
@@ -130,6 +133,18 @@ class OpenedGroupKey {
   final PeerKeys distributor;
 }
 
+class OpenedDirectMessage {
+  OpenedDirectMessage({
+    required this.payload,
+    required this.senderUserId,
+    required this.recipientUserId,
+  });
+
+  final Payload payload;
+  final int senderUserId;
+  final int recipientUserId;
+}
+
 class OpenedGroupMessage {
   OpenedGroupMessage({required this.payload, required this.sender});
 
@@ -192,6 +207,10 @@ class E2eProtocol {
     if (!_verify(_domain('tc-announce-v1', body), sig, sign)) {
       throw ProtocolException('bad announcement signature');
     }
+    if (createdAt <= 0 || createdAt > _maxTimestamp) {
+      throw ProtocolException('bad announcement time');
+    }
+    _pairKey(enc); // rejects low-order keys
     return PeerKeys(
       userId: userId,
       encPublic: enc,
@@ -203,6 +222,7 @@ class E2eProtocol {
   // ------------------------------------------------------------------ direct
 
   Uint8List encryptDirect(PeerKeys peer, Payload payload) {
+    final plain = _encodePayload(payload);
     final header =
         (_Writer()
               ..u8(Protocol.version)
@@ -212,16 +232,21 @@ class E2eProtocol {
               ..bytes(_nonce()))
             .take();
     final ct = _aead.encrypt(
-      message: _encodePayload(payload),
+      message: plain,
       nonce: Uint8List.sublistView(header, header.length - Protocol.nonceBytes),
       key: _pairKey(peer.encPublic),
-      additionalData: header,
+      additionalData: _directAd(header, _me.userId, peer.userId),
     );
+    plain.fillRange(0, plain.length, 0);
     return _concat([header, ct]);
   }
 
-  /// Decrypts both incoming and our own outgoing messages.
-  Payload decryptDirect(Uint8List envelope, KeyLookup keys) {
+  static Uint8List _directAd(Uint8List header, int sender, int recipient) =>
+      _concat([header, _int64(sender), _int64(recipient)]);
+
+  /// Decrypts both incoming and our own outgoing messages. The caller must
+  /// check the sender against the Telegram sender and the chat.
+  OpenedDirectMessage decryptDirect(Uint8List envelope, KeyLookup keys) {
     final r = _Reader(envelope)..header(Protocol.typeDirect);
     final senderId = r.bytes(Protocol.keyIdBytes);
     final recipientId = r.bytes(Protocol.keyIdBytes);
@@ -229,29 +254,55 @@ class E2eProtocol {
     final header = Uint8List.sublistView(envelope, 0, r.offset);
     final ct = r.rest();
 
-    final Uint8List peerKeyId;
+    final bool outgoing;
     if (_eq(senderId, myEncKeyId)) {
-      peerKeyId = recipientId;
+      outgoing = true;
     } else if (_eq(recipientId, myEncKeyId)) {
-      peerKeyId = senderId;
+      outgoing = false;
     } else {
       throw ProtocolException('message is not for this key');
     }
-    final peerEnc = _eq(peerKeyId, myEncKeyId)
-        ? _me.encryption.publicKey
-        : keys.peerByEncKeyId(peerKeyId)?.encPublic;
-    if (peerEnc == null) throw ProtocolException('unknown peer key');
+    final peerKeyId = outgoing ? recipientId : senderId;
+    final peer = _eq(peerKeyId, myEncKeyId)
+        ? myKeys
+        : keys.peerByEncKeyId(peerKeyId);
+    if (peer == null) throw ProtocolException('unknown peer key');
 
-    final plain = _decrypt(ct, nonce, _pairKey(peerEnc), header);
-    return _decodePayload(plain);
+    final sender = outgoing ? _me.userId : peer.userId;
+    final recipient = outgoing ? peer.userId : _me.userId;
+    final plain = _decrypt(
+      ct,
+      nonce,
+      _pairKey(peer.encPublic),
+      _directAd(header, sender, recipient),
+    );
+    return OpenedDirectMessage(
+      payload: _decodePayload(plain),
+      senderUserId: sender,
+      recipientUserId: recipient,
+    );
   }
 
   // ------------------------------------------------------------------- group
 
-  GroupKey generateGroupKey() => GroupKey(
-    id: _sodium.randombytes.buf(Protocol.keyIdBytes),
-    key: _sodium.secureRandom(Protocol.groupKeyBytes),
-    createdAt: DateTime.now(),
+  GroupKey generateGroupKey(int chatId) {
+    final key = _sodium.secureRandom(Protocol.groupKeyBytes);
+    return GroupKey(
+      id: _groupKeyId(chatId, key),
+      key: key,
+      createdAt: DateTime.now(),
+    );
+  }
+
+  Uint8List _groupKeyId(int chatId, SecureKey key) => key.runUnlockedSync(
+    (raw) => Uint8List.fromList(
+      _sodium.crypto
+          .genericHash(
+            message: _concat([utf8.encode('tc-gkid-v1'), _int64(chatId), raw]),
+            outLen: 16,
+          )
+          .sublist(0, Protocol.keyIdBytes),
+    ),
   );
 
   Uint8List encryptGroup(int chatId, GroupKey key, Payload payload) {
@@ -343,14 +394,17 @@ class E2eProtocol {
         ..u8(chunk.length);
       for (final enc in chunk) {
         final nonce = _nonce();
-        final wrapped = key.key.runUnlockedSync(
-          (raw) => _aead.encrypt(
-            message: Uint8List.fromList(raw),
+        final wrapped = key.key.runUnlockedSync((raw) {
+          final copy = Uint8List.fromList(raw);
+          final ct = _aead.encrypt(
+            message: copy,
             nonce: nonce,
             key: _pairKey(enc),
             additionalData: ad,
-          ),
-        );
+          );
+          copy.fillRange(0, copy.length, 0);
+          return ct;
+        });
         w
           ..bytes(keyId(enc))
           ..bytes(nonce)
@@ -404,12 +458,17 @@ class E2eProtocol {
         _pairKey(distributor.encPublic),
         _concat([_int64(chatId), keyIdBytes]),
       );
+      final secure = _sodium.secureCopy(raw);
+      raw.fillRange(0, raw.length, 0);
+      if (!_eq(_groupKeyId(chatId, secure), keyIdBytes)) {
+        secure.dispose();
+        throw ProtocolException('group key id mismatch');
+      }
       final key = GroupKey(
         id: keyIdBytes,
-        key: _sodium.secureCopy(raw),
+        key: secure,
         createdAt: DateTime.now(),
       );
-      raw.fillRange(0, raw.length, 0);
       return OpenedGroupKey(key: key, distributor: distributor);
     }
     return null;
@@ -482,10 +541,16 @@ class E2eProtocol {
   SecureKey _pairKey(Uint8List peerEnc) {
     final cacheKey = base64.encode(peerEnc);
     return _pairKeys[cacheKey] ??= () {
-      final shared = _sodium.crypto.scalarmult(
-        n: _me.encryption.secretKey,
-        p: peerEnc,
-      );
+      if (peerEnc.length != 32) throw ProtocolException('invalid public key');
+      final SecureKey shared;
+      try {
+        shared = _sodium.crypto.scalarmult(
+          n: _me.encryption.secretKey,
+          p: peerEnc,
+        );
+      } on SodiumException {
+        throw ProtocolException('invalid public key');
+      }
       final mine = _me.encryption.publicKey;
       final (lo, hi) = _compare(mine, peerEnc) <= 0
           ? (mine, peerEnc)
@@ -511,14 +576,28 @@ class E2eProtocol {
     UnknownPayload() => throw ArgumentError('cannot encode unknown payload'),
   };
 
+  @visibleForTesting
+  static Payload decodePayload(Uint8List plain) => _decodePayload(plain);
+
   static Payload _decodePayload(Uint8List plain) {
     if (plain.isEmpty) throw ProtocolException('empty payload');
     final body = Uint8List.sublistView(plain, 1);
     return switch (plain[0]) {
-      Protocol.contentText => TextPayload(utf8.decode(body)),
+      Protocol.contentText => TextPayload(_utf8(body)),
       final other => UnknownPayload(other),
     };
   }
+
+  static String _utf8(Uint8List bytes) {
+    try {
+      return utf8.decode(bytes);
+    } on FormatException {
+      throw ProtocolException('invalid text');
+    }
+  }
+
+  /// Seconds; rejects values that can't be a date.
+  static const _maxTimestamp = 1 << 40;
 
   void dispose() {
     for (final k in _pairKeys.values) {

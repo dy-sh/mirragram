@@ -87,13 +87,14 @@ void main() {
 
       final bobKeys = _Keys(bob)..peers.add(alice.myKeys);
       expect(
-        (bob.decryptDirect(decoded, bobKeys) as TextPayload).text,
+        (bob.decryptDirect(decoded, bobKeys).payload as TextPayload).text,
         'Hi Bob! Ça va? 👋',
       );
 
       final laptopKeys = _Keys(aliceLaptop)..peers.add(bob.myKeys);
       expect(
-        (aliceLaptop.decryptDirect(decoded, laptopKeys) as TextPayload).text,
+        (aliceLaptop.decryptDirect(decoded, laptopKeys).payload as TextPayload)
+            .text,
         'Hi Bob! Ça va? 👋',
       );
 
@@ -117,7 +118,7 @@ void main() {
     final bob = proto(bobSeed, 2);
     final carol = proto(carolSeed, 3);
 
-    final gk = alice.generateGroupKey();
+    final gk = alice.generateGroupKey(chatId);
     final bundles = alice.createGroupKeyBundles(chatId, gk, [bob.myKeys]);
     expect(bundles, hasLength(1));
 
@@ -165,7 +166,7 @@ void main() {
 
     final bundles = alice.createGroupKeyBundles(
       -1,
-      alice.generateGroupKey(),
+      alice.generateGroupKey(-1),
       members,
     );
     expect(bundles, hasLength(3)); // 82 recipients including us / 36
@@ -193,5 +194,97 @@ void main() {
   test('plain text is not treated as encrypted', () {
     expect(Protocol.decodeText('hello'), isNull);
     expect(Protocol.decodeText('🔒 just a lock'), isNull);
+  });
+
+  group('malicious input', () {
+    Uint8List announcement({
+      required int userId,
+      required int createdAt,
+      required Uint8List enc,
+      required KeyPair signing,
+    }) {
+      final body = BytesBuilder()
+        ..add([Protocol.version, Protocol.typeAnnounce])
+        ..add((ByteData(8)..setInt64(0, userId)).buffer.asUint8List())
+        ..add((ByteData(8)..setInt64(0, createdAt)).buffer.asUint8List())
+        ..add(enc)
+        ..add(signing.publicKey);
+      final bytes = body.toBytes();
+      final sig = sodium.crypto.sign.detached(
+        message: Uint8List.fromList([...'tc-announce-v1'.codeUnits, ...bytes]),
+        secretKey: signing.secretKey,
+      );
+      return Uint8List.fromList([...bytes, ...sig]);
+    }
+
+    test('an absurd announcement time is rejected, not thrown', () {
+      final bob = proto(bobSeed, 2);
+      final ann = announcement(
+        userId: 66,
+        createdAt: 1 << 62,
+        enc: sodium.crypto.box.keyPair().publicKey,
+        signing: sodium.crypto.sign.keyPair(),
+      );
+      expect(
+        () => bob.openAnnouncement(ann),
+        throwsA(isA<ProtocolException>()),
+      );
+    });
+
+    test('a low-order encryption key is rejected', () {
+      final bob = proto(bobSeed, 2);
+      final ann = announcement(
+        userId: 66,
+        createdAt: 1700000000,
+        enc: Uint8List(32),
+        signing: sodium.crypto.sign.keyPair(),
+      );
+      expect(
+        () => bob.openAnnouncement(ann),
+        throwsA(isA<ProtocolException>()),
+      );
+    });
+
+    test('invalid UTF-8 in a payload is a protocol error', () {
+      expect(
+        () => E2eProtocol.decodePayload(
+          Uint8List.fromList([Protocol.contentText, 0xFF, 0xFE]),
+        ),
+        throwsA(isA<ProtocolException>()),
+      );
+    });
+
+    test('direct messages carry the sender and recipient', () {
+      final alice = proto(aliceSeed, 1);
+      final bob = proto(bobSeed, 2);
+      final env = alice.encryptDirect(bob.myKeys, const TextPayload('hi'));
+      final opened = bob.decryptDirect(
+        env,
+        _Keys(bob)..peers.add(alice.myKeys),
+      );
+      expect(opened.senderUserId, 1);
+      expect(opened.recipientUserId, 2);
+    });
+
+    test('a group key under someone else\'s key id is rejected', () {
+      const chatId = -100123;
+      final alice = proto(aliceSeed, 1);
+      final mallory = proto(carolSeed, 3);
+      final bob = proto(bobSeed, 2);
+      final real = alice.generateGroupKey(chatId);
+      final fake = GroupKey(
+        id: real.id,
+        key: sodium.secureRandom(Protocol.groupKeyBytes),
+        createdAt: DateTime.now(),
+      );
+      final bundle = mallory.createGroupKeyBundles(chatId, fake, [
+        bob.myKeys,
+      ]).single;
+      final bobKeys = _Keys(bob)..peers.add(mallory.myKeys);
+      expect(
+        () => bob.openGroupKeyBundle(chatId, bundle, bobKeys),
+        throwsA(isA<ProtocolException>()),
+      );
+    });
   });
 }

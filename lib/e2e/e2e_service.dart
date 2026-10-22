@@ -91,6 +91,9 @@ class E2eService extends ChangeNotifier {
 
   String _seedKey(int userId) => 'e2e_seed_$userId';
 
+  static DateTime _date(TdObject message) =>
+      DateTime.fromMillisecondsSinceEpoch((message['date'] as int) * 1000);
+
   File _keysFile(int userId) => File(p.join(_dataDir.path, 'keys_$userId.bin'));
 
   Future<void> init(int userId) async {
@@ -132,6 +135,7 @@ class E2eService extends ChangeNotifier {
 
   Future<void> reset() async {
     final userId = _userId;
+    status = E2eStatus.loading;
     _dispose();
     if (userId != null) {
       await _secure.delete(key: _seedKey(userId));
@@ -157,10 +161,9 @@ class E2eService extends ChangeNotifier {
 
   // ------------------------------------------------------------- incoming
 
-  /// Picks up key announcements and group keys. Messages must be in
-  /// chronological order.
+  /// Picks up key announcements and group keys, in any order.
   void ingest(Iterable<TdObject> messages) {
-    if (!isReady) return;
+    if (!isReady || _store == null) return;
     var changed = false;
     for (final m in messages) {
       final envelope = _envelope(m);
@@ -179,16 +182,22 @@ class E2eService extends ChangeNotifier {
             }
           case Protocol.typeGroupKey:
             final opened = protocol.openGroupKeyBundle(chatId, envelope, store);
-            if (opened != null &&
-                opened.distributor.userId == senderUserId(m)) {
-              changed |= store.addGroupKey(
-                chatId,
-                opened.key,
-                own: opened.distributor.userId == _userId,
-              );
+            if (opened == null) break;
+            if (opened.distributor.userId != senderUserId(m)) {
+              opened.key.key.dispose();
+              break;
             }
+            changed |= store.addGroupKey(
+              chatId,
+              GroupKey(
+                id: opened.key.id,
+                key: opened.key.key,
+                createdAt: _date(m),
+              ),
+              own: opened.distributor.userId == _userId,
+            );
         }
-      } on ProtocolException {
+      } catch (_) {
         // Damaged or not ours: shown as undecryptable.
       }
     }
@@ -205,7 +214,7 @@ class E2eService extends ChangeNotifier {
 
     final envelope = Protocol.decodeText(text);
     if (envelope == null) return null;
-    if (!isReady) return const E2eLocked();
+    if (!isReady || _store == null) return const E2eLocked();
 
     final chatId = message['chat_id'] as int;
     final sender = senderUserId(message);
@@ -219,9 +228,17 @@ class E2eService extends ChangeNotifier {
             valid: keys.userId == sender,
           );
         }(),
-        Protocol.typeDirect => _payloadView(
-          protocol.decryptDirect(envelope, store),
-        ),
+        Protocol.typeDirect => () {
+          final opened = protocol.decryptDirect(envelope, store);
+          final peer = opened.senderUserId == _userId
+              ? opened.recipientUserId
+              : opened.senderUserId;
+          // Private chat ids equal the peer's user id.
+          if (opened.senderUserId != sender || chatId != peer) {
+            return const E2eUndecryptable(UndecryptableReason.forgedSender);
+          }
+          return _payloadView(opened.payload);
+        }(),
         Protocol.typeGroup => () {
           final opened = protocol.decryptGroup(chatId, envelope, store);
           if (opened.sender.userId != sender) {
@@ -236,6 +253,10 @@ class E2eService extends ChangeNotifier {
       };
     } on ProtocolException catch (e) {
       return _cache[cacheKey] = E2eUndecryptable(_reason(e));
+    } catch (_) {
+      return _cache[cacheKey] = const E2eUndecryptable(
+        UndecryptableReason.corrupted,
+      );
     }
     return _cache[cacheKey] = result;
   }
@@ -247,7 +268,8 @@ class E2eService extends ChangeNotifier {
 
   UndecryptableReason _reason(ProtocolException e) => switch (e.message) {
     'unknown peer key' ||
-    'unknown sender key' => UndecryptableReason.noSenderKey,
+    'unknown sender key' ||
+    'unknown distributor key' => UndecryptableReason.noSenderKey,
     'unknown group key' => UndecryptableReason.noGroupKey,
     'message is not for this key' => UndecryptableReason.otherKey,
     _ => UndecryptableReason.corrupted,
@@ -280,7 +302,9 @@ class E2eService extends ChangeNotifier {
   }
 
   /// Returns the messages to post in the group.
-  ({List<String> messages, int recipients}) rotateGroupKey(
+  /// Creates a new group key and the messages that distribute it. The key
+  /// becomes current only after [commitGroupKey], once they are sent.
+  ({GroupKey key, List<String> messages, int recipients}) prepareGroupKey(
     int chatId,
     Iterable<int> memberUserIds,
   ) {
@@ -288,20 +312,33 @@ class E2eService extends ChangeNotifier {
     final recipients = store.allPeers
         .where((k) => members.contains(k.userId))
         .toList();
-    final key = protocol.generateGroupKey();
+    final key = protocol.generateGroupKey(chatId);
+    try {
+      final bundles = protocol.createGroupKeyBundles(chatId, key, recipients);
+      return (
+        key: key,
+        messages: bundles.map(Protocol.encodeText).toList(),
+        recipients: recipients.length,
+      );
+    } catch (_) {
+      key.key.dispose();
+      rethrow;
+    }
+  }
+
+  void commitGroupKey(int chatId, GroupKey key) {
+    if (!isReady || _store == null) {
+      key.key.dispose();
+      return;
+    }
     store.addGroupKey(chatId, key, own: true);
     _changed();
-    final bundles = protocol.createGroupKeyBundles(chatId, key, recipients);
-    return (
-      messages: bundles.map(Protocol.encodeText).toList(),
-      recipients: recipients.length,
-    );
   }
 
   /// When a new member announces their key in a group whose current key we
   /// distributed, returns a bundle for them. Call for live messages only.
   String? reshareGroupKey(TdObject message) {
-    if (!isReady) return null;
+    if (!isReady || _store == null) return null;
     final chatId = message['chat_id'] as int;
     final envelope = _envelope(message);
     if (envelope == null ||
@@ -311,12 +348,28 @@ class E2eService extends ChangeNotifier {
         !store.ownsGroupKey(chatId)) {
       return null;
     }
+    final PeerKeys announced;
+    try {
+      announced = protocol.openAnnouncement(envelope);
+    } catch (_) {
+      return null;
+    }
     final key = store.currentGroupKey(chatId);
-    final peer = store.peer(senderUserId(message) ?? 0);
-    if (key == null || peer == null) return null;
-    final bundles = protocol.createGroupKeyBundles(chatId, key, [peer]);
-    return Protocol.encodeText(bundles.single);
+    if (key == null || announced.userId != senderUserId(message)) return null;
+    final once =
+        '$chatId:${base64.encode(key.id)}:${base64.encode(announced.encPublic)}';
+    if (!_reshared.add(once)) return null;
+    try {
+      final bundles = protocol.createGroupKeyBundles(chatId, key, [announced]);
+      return Protocol.encodeText(bundles.single);
+    } catch (_) {
+      return null;
+    }
   }
+
+  /// Bundles already sent this session, to avoid answering repeated
+  /// announcements.
+  final _reshared = <String>{};
 
   String _checkLength(Uint8List envelope) {
     final text = Protocol.encodeText(envelope);
@@ -332,6 +385,7 @@ class E2eService extends ChangeNotifier {
   }
 
   void _dispose() {
+    _store?.dispose();
     _proto?.dispose();
     _identity?.dispose();
     _proto = null;

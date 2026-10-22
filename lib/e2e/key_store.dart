@@ -16,7 +16,7 @@ class KeyStore implements KeyLookup {
   final SecureKey _storageKey;
   final Uint8List Function(Uint8List) _keyId;
 
-  /// Old keys are kept to read history; the last one is current.
+  /// Old keys are kept to read history; the newest one is current.
   final _peers = <int, List<PeerKeys>>{};
   final _verified = <int>{};
 
@@ -29,8 +29,8 @@ class KeyStore implements KeyLookup {
   /// Chats where someone else announced a key.
   final _activeChats = <int>{};
 
-  /// Groups whose current key we distributed.
-  final _ownedGroupKeys = <int>{};
+  /// Ids of group keys we distributed.
+  final _ownedGroupKeyIds = <String>{};
 
   static Future<KeyStore> open({
     required SodiumSumo sodium,
@@ -40,14 +40,20 @@ class KeyStore implements KeyLookup {
   }) async {
     final store = KeyStore._(sodium, file, storageKey, keyId);
     if (await file.exists()) {
-      store._load(await file.readAsBytes());
+      try {
+        store._load(await file.readAsBytes());
+      } catch (_) {
+        // Damaged store: keep it aside and rebuild keys from chat history.
+        store._clear();
+        await file.rename('${file.path}.corrupt');
+      }
     }
     return store;
   }
 
   // ------------------------------------------------------------------ peers
 
-  PeerKeys? peer(int userId) => _peers[userId]?.lastOrNull;
+  PeerKeys? peer(int userId) => _newest(_peers[userId], (k) => k.createdAt);
 
   bool isVerified(int userId) => _verified.contains(userId);
 
@@ -55,7 +61,10 @@ class KeyStore implements KeyLookup {
   bool addPeer(PeerKeys keys) {
     final list = _peers.putIfAbsent(keys.userId, () => []);
     if (list.any((k) => _eq(k.encPublic, keys.encPublic))) return false;
-    if (list.isNotEmpty) _verified.remove(keys.userId);
+    final current = peer(keys.userId);
+    if (current != null && keys.createdAt.isAfter(current.createdAt)) {
+      _verified.remove(keys.userId);
+    }
     list.add(keys);
     _save();
     return true;
@@ -66,7 +75,7 @@ class KeyStore implements KeyLookup {
     _save();
   }
 
-  Iterable<PeerKeys> get allPeers => _peers.values.map((l) => l.last);
+  Iterable<PeerKeys> get allPeers => _peers.keys.map((id) => peer(id)!);
 
   @override
   PeerKeys? peerByEncKeyId(Uint8List keyId) =>
@@ -87,22 +96,36 @@ class KeyStore implements KeyLookup {
 
   // ----------------------------------------------------------------- groups
 
-  GroupKey? currentGroupKey(int chatId) => _groupKeys[chatId]?.lastOrNull;
+  GroupKey? currentGroupKey(int chatId) =>
+      _newest(_groupKeys[chatId], (k) => k.createdAt);
 
   @override
   GroupKey? groupKey(int chatId, Uint8List keyId) =>
       _groupKeys[chatId]?.where((k) => _eq(k.id, keyId)).firstOrNull;
 
+  /// [key.createdAt] should be the Telegram date of the message that
+  /// delivered it, so the newest key wins regardless of processing order.
   bool addGroupKey(int chatId, GroupKey key, {required bool own}) {
     final list = _groupKeys.putIfAbsent(chatId, () => []);
-    if (list.any((k) => _eq(k.id, key.id))) return false;
+    if (list.any((k) => _eq(k.id, key.id))) {
+      key.key.dispose();
+      return false;
+    }
     list.add(key);
-    own ? _ownedGroupKeys.add(chatId) : _ownedGroupKeys.remove(chatId);
+    if (own) _ownedGroupKeyIds.add(base64.encode(key.id));
     _save();
     return true;
   }
 
-  bool ownsGroupKey(int chatId) => _ownedGroupKeys.contains(chatId);
+  bool ownsGroupKey(int chatId) {
+    final key = currentGroupKey(chatId);
+    return key != null && _ownedGroupKeyIds.contains(base64.encode(key.id));
+  }
+
+  static T? _newest<T>(List<T>? list, DateTime Function(T) date) {
+    if (list == null || list.isEmpty) return null;
+    return list.reduce((a, b) => date(b).isAfter(date(a)) ? b : a);
+  }
 
   // --------------------------------------------------------------- settings
 
@@ -163,7 +186,28 @@ class KeyStore implements KeyLookup {
     _encryptedChats.addAll((json['encryptedChats'] as List).cast<int>());
     _announcedChats.addAll((json['announcedChats'] as List? ?? []).cast<int>());
     _activeChats.addAll((json['activeChats'] as List? ?? []).cast<int>());
-    _ownedGroupKeys.addAll((json['ownedGroupKeys'] as List? ?? []).cast<int>());
+    _ownedGroupKeyIds.addAll(
+      (json['ownedGroupKeyIds'] as List? ?? []).cast<String>(),
+    );
+  }
+
+  void _clear() {
+    dispose();
+    _peers.clear();
+    _verified.clear();
+    _encryptedChats.clear();
+    _announcedChats.clear();
+    _activeChats.clear();
+    _ownedGroupKeyIds.clear();
+  }
+
+  void dispose() {
+    for (final list in _groupKeys.values) {
+      for (final k in list) {
+        k.key.dispose();
+      }
+    }
+    _groupKeys.clear();
   }
 
   void _save() {
@@ -179,7 +223,7 @@ class KeyStore implements KeyLookup {
             for (final k in e.value)
               {
                 'id': base64.encode(k.id),
-                'key': base64.encode(k.key.extractBytes()),
+                'key': k.key.runUnlockedSync(base64.encode),
                 'createdAt': k.createdAt.millisecondsSinceEpoch,
               },
           ],
@@ -187,7 +231,7 @@ class KeyStore implements KeyLookup {
       'encryptedChats': _encryptedChats.toList(),
       'announcedChats': _announcedChats.toList(),
       'activeChats': _activeChats.toList(),
-      'ownedGroupKeys': _ownedGroupKeys.toList(),
+      'ownedGroupKeyIds': _ownedGroupKeyIds.toList(),
     };
     final aead = _sodium.crypto.aeadXChaCha20Poly1305IETF;
     final nonce = _sodium.randombytes.buf(aead.nonceBytes);

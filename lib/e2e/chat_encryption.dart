@@ -52,12 +52,13 @@ class ChatEncryption {
         _e2e.announcementText(),
         disableLinkPreview: true,
       );
+      if (!_e2e.isReady) return;
       _e2e.store.markAnnounced(chatId);
     }
     if (isGroup && _e2e.store.currentGroupKey(chatId) == null) {
       await rotateGroupKey();
     }
-    _e2e.refresh();
+    if (_e2e.isReady) _e2e.refresh();
   }
 
   void disable() {
@@ -68,10 +69,17 @@ class ChatEncryption {
   /// Returns the number of recipients, excluding us.
   Future<int> rotateGroupKey() async {
     final members = await _tg.groupMemberIds(chat);
-    final result = _e2e.rotateGroupKey(chatId, members);
-    for (final text in result.messages) {
-      await _tg.sendText(chatId, text, disableLinkPreview: true);
+    if (!_e2e.isReady) return 0;
+    final result = _e2e.prepareGroupKey(chatId, members);
+    try {
+      for (final text in result.messages) {
+        await _tg.sendText(chatId, text, disableLinkPreview: true);
+      }
+    } catch (_) {
+      result.key.key.dispose();
+      rethrow;
     }
+    _e2e.commitGroupKey(chatId, result.key);
     return result.recipients;
   }
 
