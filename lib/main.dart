@@ -55,7 +55,7 @@ Future<void> main() async {
       }
     });
 
-    final Widget app = TelApp(tg: tg, e2e: e2e, appearance: appearance);
+    final Widget app = MirragramApp(tg: tg, e2e: e2e, appearance: appearance);
     const driver = String.fromEnvironment('TG_DEMO_DRIVER');
     runApp(
       demoMode && driver.isNotEmpty

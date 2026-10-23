@@ -11,7 +11,7 @@ class MainFlutterWindow: NSWindow {
 
     // Lets demo mode resize the window to check mobile and desktop layouts.
     let channel = FlutterMethodChannel(
-      name: "veilgram/window",
+      name: "mirragram/window",
       binaryMessenger: flutterViewController.engine.binaryMessenger)
     channel.setMethodCallHandler { [weak self] call, result in
       guard call.method == "setContentSize",

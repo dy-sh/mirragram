@@ -1,4 +1,4 @@
-name: veilgram
+name: mirragram
 description: "Telegram client with end-to-end encryption on top of regular cloud chats."
 publish_to: 'none'
 version: 0.1.0+1

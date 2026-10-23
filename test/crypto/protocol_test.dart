@@ -1,9 +1,9 @@
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mirragram/crypto/identity.dart';
+import 'package:mirragram/crypto/protocol.dart';
 import 'package:sodium/sodium_sumo.dart';
-import 'package:veilgram/crypto/identity.dart';
-import 'package:veilgram/crypto/protocol.dart';
 
 class _Keys implements KeyLookup {
   final peers = <PeerKeys>[];

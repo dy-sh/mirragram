@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "Veilgram contributors" "\0"
-            VALUE "FileDescription", "Veilgram" "\0"
+            VALUE "CompanyName", "Mirragram contributors" "\0"
+            VALUE "FileDescription", "Mirragram" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "veilgram" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 Veilgram contributors" "\0"
-            VALUE "OriginalFilename", "veilgram.exe" "\0"
-            VALUE "ProductName", "Veilgram" "\0"
+            VALUE "InternalName", "mirragram" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 Mirragram contributors" "\0"
+            VALUE "OriginalFilename", "mirragram.exe" "\0"
+            VALUE "ProductName", "Mirragram" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

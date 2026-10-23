@@ -1,5 +1,5 @@
 // FFI bindings to td_json_client.h. The library is bundled by hook/build.dart.
-@DefaultAsset('package:veilgram/tdjson')
+@DefaultAsset('package:mirragram/tdjson')
 library;
 
 import 'dart:ffi';

@@ -1,4 +1,4 @@
-package app.veilgram
+package app.mirragram
 
 import io.flutter.embedding.android.FlutterActivity
 

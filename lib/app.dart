@@ -35,8 +35,8 @@ class AppScope extends InheritedWidget {
   bool updateShouldNotify(AppScope oldWidget) => false;
 }
 
-class TelApp extends StatelessWidget {
-  const TelApp({
+class MirragramApp extends StatelessWidget {
+  const MirragramApp({
     super.key,
     required this.tg,
     required this.e2e,
@@ -57,7 +57,7 @@ class TelApp extends StatelessWidget {
         listenable: appearance,
         builder: (context, _) => CupertinoApp(
           debugShowCheckedModeBanner: false,
-          title: 'Veilgram',
+          title: 'Mirragram',
           locale: appearance.locale,
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,

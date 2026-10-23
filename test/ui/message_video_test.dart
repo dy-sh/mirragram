@@ -1,7 +1,7 @@
 import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:veilgram/ui/widgets/message_photo.dart';
-import 'package:veilgram/ui/widgets/message_video.dart';
+import 'package:mirragram/ui/widgets/message_photo.dart';
+import 'package:mirragram/ui/widgets/message_video.dart';
 
 void main() {
   test('durations are formatted like Telegram', () {

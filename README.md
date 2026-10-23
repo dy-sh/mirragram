@@ -1,4 +1,4 @@
-# Veilgram
+# Mirragram
 
 An unofficial Telegram client that looks and works like the official apps and
 adds end-to-end encryption to regular cloud chats — private chats and groups.

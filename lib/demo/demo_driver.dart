@@ -46,7 +46,7 @@ class _DemoDriverState extends State<DemoDriver> {
   final _boundary = GlobalKey();
   Timer? _timer;
   bool _busy = false;
-  static const _window = MethodChannel('veilgram/window');
+  static const _window = MethodChannel('mirragram/window');
   var _pointer = 1000;
 
   @override
