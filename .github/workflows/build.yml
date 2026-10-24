@@ -49,9 +49,110 @@ jobs:
           name: windows
           path: mirragram-windows-x64.zip
 
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/cache@v4
+        id: tdlib
+        with:
+          path: .tdlib/out/android-*
+          key: tdlib-android-${{ hashFiles('scripts/build_tdlib_android.sh') }}
+      - if: steps.tdlib.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update && sudo apt-get install -y gperf ninja-build
+          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "ndk;28.2.13676358" > /dev/null
+          ./scripts/build_tdlib_android.sh
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - name: Build
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.p12"
+            export ANDROID_KEYSTORE_PATH="$RUNNER_TEMP/release.p12"
+          fi
+          flutter build apk --release $DART_DEFINES
+          cp build/app/outputs/flutter-apk/app-release.apk mirragram-android.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: mirragram-android.apk
+
+  linux:
+    # The oldest available runner keeps the glibc requirement low.
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config gperf \
+            libgtk-3-dev liblzma-dev libssl-dev zlib1g-dev libmpv-dev libsecret-1-dev
+      - uses: actions/cache@v4
+        id: tdlib
+        with:
+          path: .tdlib/out/linux-x64
+          key: tdlib-linux-x64-${{ hashFiles('scripts/build_tdlib_linux.sh') }}
+      - if: steps.tdlib.outputs.cache-hit != 'true'
+        run: ./scripts/build_tdlib_linux.sh
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - run: flutter build linux --release $DART_DEFINES
+      - run: tar -czf mirragram-linux-x64.tar.gz -C build/linux/x64/release/bundle .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: mirragram-linux-x64.tar.gz
+
+  apple:
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [macos, ios]
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        id: tdlib
+        with:
+          path: .tdlib/out/${{ matrix.platform }}-arm64
+          key: tdlib-${{ matrix.platform }}-arm64-${{ hashFiles('scripts/build_tdlib_apple.sh') }}
+      - if: steps.tdlib.outputs.cache-hit != 'true'
+        run: |
+          brew install gperf
+          ./scripts/build_tdlib_apple.sh ${{ matrix.platform }}
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - if: matrix.platform == 'macos'
+        run: |
+          flutter build macos --release $DART_DEFINES
+          ditto -c -k --keepParent build/macos/Build/Products/Release/Mirragram.app mirragram-macos-arm64.zip
+      - if: matrix.platform == 'ios'
+        run: |
+          flutter build ios --release --no-codesign $DART_DEFINES
+          mkdir Payload
+          cp -R build/ios/iphoneos/Runner.app Payload/
+          zip -qr mirragram-ios-unsigned.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform }}
+          path: mirragram-*
+
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [test, windows]
+    needs: [test, windows, android, linux, apple]
     runs-on: ubuntu-latest
     permissions:
       contents: write

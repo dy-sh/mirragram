@@ -11,8 +11,8 @@ by random characters. Both sides need this client to read each other.
 > been audited. Do not rely on it for anything sensitive yet.
 
 Built with Flutter, [TDLib](https://github.com/tdlib/td) and
-[libsodium](https://libsodium.org). Targets iOS and Android first, then
-Windows, Linux and macOS.
+[libsodium](https://libsodium.org). Runs on Android, iOS, Windows, macOS and
+Linux.
 
 ## How it compares
 
@@ -68,19 +68,47 @@ This table will be updated as the client develops.
   the chat, videos open in a full-screen player.
 - English and Russian; the system language is used by default.
 
+## Download
+
+Builds for every platform are on the
+[Releases](https://github.com/dy-sh/mirragram/releases) page. They are not
+signed with store certificates, so the system will warn you on first launch:
+
+- **Android** — `mirragram-android.apk`. Allow installing apps from your
+  browser or file manager when asked.
+- **Windows** — unpack `mirragram-windows-x64.zip` and run `mirragram.exe`.
+  If SmartScreen appears, choose *More info* → *Run anyway*.
+- **macOS** (Apple Silicon) — unpack `mirragram-macos-arm64.zip`, try to open
+  the app once, then allow it in *System Settings* → *Privacy & Security* →
+  *Open Anyway*.
+- **Linux** (x64) — unpack `mirragram-linux-x64.tar.gz` and run `mirragram`.
+  Needs `libmpv` and `libsecret` (on Debian and Ubuntu: `sudo apt install
+  libmpv2 libsecret-1-0`; `libmpv1` on older releases).
+- **iOS** — `mirragram-ios-unsigned.ipa` has to be signed before installing,
+  for example with [AltStore](https://altstore.io) or
+  [SideStore](https://sidestore.io) and a free Apple ID.
+
 ## Building
 
-Requires Flutter 3.41+. Only macOS builds are set up so far.
+Requires Flutter 3.41+ and the `api_id` and `api_hash` of your app from
+https://my.telegram.org.
 
-1. Get `api_id` and `api_hash` at https://my.telegram.org.
-2. Build TDLib (once, ~15 minutes):
+1. Build TDLib once for the target platform (15–60 minutes):
+
+   | Platform | Command | Needs |
+   |---|---|---|
+   | Android | `./scripts/build_tdlib_android.sh` | Android SDK with NDK 28.2, cmake, ninja, gperf, perl, php, JDK |
+   | iOS | `./scripts/build_tdlib_apple.sh ios` | Xcode, `brew install cmake gperf` |
+   | macOS | `./scripts/build_tdlib_apple.sh macos` | Xcode, `brew install cmake gperf` |
+   | Linux | `./scripts/build_tdlib_linux.sh` | `apt install cmake gperf g++ libssl-dev zlib1g-dev` |
+   | Windows | `./scripts/build_tdlib_windows.ps1` | Visual Studio with C++, CMake, vcpkg |
+
+   The library is placed in `.tdlib/out/` and bundled automatically.
+   Linux builds also need `libgtk-3-dev`, `libmpv-dev` and `libsecret-1-dev`.
+
+2. Run:
    ```sh
-   brew install cmake gperf openssl@3
-   ./scripts/build_tdlib_macos.sh
-   ```
-3. Run:
-   ```sh
-   flutter run -d macos --dart-define=TG_API_ID=... --dart-define=TG_API_HASH=...
+   flutter run --dart-define=TG_API_ID=... --dart-define=TG_API_HASH=...
    ```
 
 Add `--dart-define=TG_DEMO=true` to try the UI with fake chats, without an
@@ -89,16 +117,21 @@ account or TDLib credentials.
 Tests: `flutter test`. Repository checks: `python3 scripts/check_rules.py --all`
 (`--install-hooks` runs them before every commit).
 
+Release builds for all platforms are made by
+[GitHub Actions](.github/workflows/build.yml) when a `v*` tag is pushed.
+
 ## Credits
 
-- [TDLib](https://github.com/tdlib/td) — Boost Software License 1.0.
+- [TDLib](https://github.com/tdlib/td) — Boost Software License 1.0, with
+  [OpenSSL](https://www.openssl.org) (Apache License 2.0) and
+  [zlib](https://zlib.net) (zlib License).
 - [libsodium](https://libsodium.org) via the
   [sodium](https://pub.dev/packages/sodium) package — ISC License.
-- [media_kit](https://github.com/media-kit/media-kit) for video playback.
+- [media_kit](https://github.com/media-kit/media-kit) for video playback, built on [mpv](https://mpv.io) and
+  [FFmpeg](https://ffmpeg.org).
 - Passphrase word list: [EFF Large Wordlist](https://www.eff.org/dice) by the
   Electronic Frontier Foundation, licensed under
   [CC BY 3.0 US](https://creativecommons.org/licenses/by/3.0/us/).
-
 
 ## License
 

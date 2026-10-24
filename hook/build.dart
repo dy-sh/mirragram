@@ -4,7 +4,7 @@ import 'package:code_assets/code_assets.dart';
 import 'package:hooks/hooks.dart';
 
 /// Bundles the prebuilt libtdjson from `.tdlib/out/<os>-<arch>[-simulator]/`.
-/// Only macOS has a build script so far (`scripts/build_tdlib_macos.sh`).
+/// It is built by `scripts/build_tdlib_<platform>`.
 void main(List<String> args) async => await build(args, (input, output) async {
   if (!input.config.buildCodeAssets) return;
 
