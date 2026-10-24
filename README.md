@@ -19,7 +19,11 @@ Linux.
 |  | Regular Telegram chat | Telegram secret chat | This client |
 |---|---|---|---|
 | End-to-end encryption | ❌ Telegram can read messages | ✅ | ✅ |
+| Where it works | any chat | a separate new chat, empty history | inside an existing chat, with its history |
 | Groups | ✅ not end-to-end | ❌ one-on-one only | ✅ |
+| Sender authenticity in groups | trust in Telegram servers | — | ✅ each message signed by the sender |
+| Saved Messages | ✅ not end-to-end | ❌ | ✅ |
+| Platforms | all official apps | mobile apps and macOS only; not Telegram Desktop or Web | Android, iOS, Windows, macOS, Linux |
 | Multiple devices | ✅ | ❌ tied to the device it was started on | ✅ the same password gives the same keys |
 | History on a new device | ✅ | ❌ | ✅ |
 | Forward secrecy | — | ✅ re-keyed every 100 messages or weekly | ❌ keys are long-lived |

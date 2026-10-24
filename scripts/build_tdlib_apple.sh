@@ -57,7 +57,10 @@ fi
 
 BUILD="$SRC/build-$PLATFORM"
 cmake -S "$SRC" -B "$BUILD" -DCMAKE_BUILD_TYPE=Release "${CMAKE_TARGET[@]}" \
-      -DOPENSSL_ROOT_DIR="$OPENSSL" -DOPENSSL_USE_STATIC_LIBS=TRUE
+      -DOPENSSL_FOUND=1 -DOPENSSL_INCLUDE_DIR="$OPENSSL/include" \
+      -DOPENSSL_CRYPTO_LIBRARY="$OPENSSL/lib/libcrypto.a" \
+      -DOPENSSL_SSL_LIBRARY="$OPENSSL/lib/libssl.a" \
+      -DOPENSSL_LIBRARIES="$OPENSSL/lib/libcrypto.a;$OPENSSL/lib/libssl.a"
 cmake --build "$BUILD" --target tdjson -j "$JOBS"
 
 mkdir -p "$OUT"
