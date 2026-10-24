@@ -1,0 +1,68 @@
+name: Build
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+env:
+  FLUTTER_VERSION: '3.41.1'
+  DART_DEFINES: >-
+    --dart-define=TG_API_ID=${{ secrets.TG_API_ID }}
+    --dart-define=TG_API_HASH=${{ secrets.TG_API_HASH }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+      - run: python3 scripts/check_rules.py --all
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        id: tdlib
+        with:
+          path: .tdlib/out/windows-x64
+          key: tdlib-windows-x64-${{ hashFiles('scripts/build_tdlib_windows.ps1') }}
+      - if: steps.tdlib.outputs.cache-hit != 'true'
+        run: ./scripts/build_tdlib_windows.ps1
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - run: flutter build windows --release ${{ env.DART_DEFINES }}
+      - name: Package
+        run: |
+          Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath mirragram-windows-x64.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: mirragram-windows-x64.zip
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [test, windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create "$GITHUB_REF_NAME" dist/*
+          --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME"
+          --prerelease --generate-notes
