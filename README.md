@@ -78,8 +78,9 @@ Builds for every platform are on the
 [Releases](https://github.com/dy-sh/mirragram/releases) page. They are not
 signed with store certificates, so the system will warn you on first launch:
 
-- **Android** — `mirragram-android.apk`. Allow installing apps from your
-  browser or file manager when asked.
+- **Android** — `mirragram-android-arm64.apk` for almost all modern phones,
+  or `mirragram-android.apk`, which also runs on older 32-bit and x86 devices.
+  Allow installing apps from your browser or file manager when asked.
 - **Windows** — unpack `mirragram-windows-x64.zip` and run `mirragram.exe`.
   If SmartScreen appears, choose *More info* → *Run anyway*.
 - **macOS** (Apple Silicon) — unpack `mirragram-macos-arm64.zip`, try to open
